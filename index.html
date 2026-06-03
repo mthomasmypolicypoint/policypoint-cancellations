@@ -99,6 +99,18 @@
   .page-btns button:disabled { opacity: 0.35; cursor: default; }
   .loading { text-align: center; padding: 50px; color: #bbb; font-size: 13px; }
   .error-msg { text-align: center; padding: 36px; color: #c0392b; font-size: 13px; }
+
+  /* AGENT SUMMARY TABLE */
+  .agent-summary-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; margin-bottom: 24px; }
+  .agent-summary-card table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .agent-summary-card thead { background: #1a2744; color: #fff; }
+  .agent-summary-card thead th { padding: 10px 14px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .agent-summary-card thead th.num { text-align: center; }
+  .agent-summary-card tbody tr { border-bottom: 1px solid #f0f2f5; }
+  .agent-summary-card tbody tr:hover { background: #f7f9fc; }
+  .agent-summary-card tbody td { padding: 8px 14px; }
+  .agent-summary-card tbody td.num { text-align: center; font-weight: 700; color: #1a2744; }
+  .agent-summary-card tbody td.num.risk { color: #c0392b; }
 </style>
 </head>
 <body>
@@ -162,7 +174,7 @@
   <div class="stats-row">
     <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value" id="statTotal">—</div></div>
     <div class="stat-card"><div class="stat-label">Compliance Risk</div><div class="stat-value" id="statFalse">—</div></div>
-    <div class="stat-card"><div class="stat-label">No Fault Found</div><div class="stat-value" id="statNoFault">—</div></div>
+    <div class="stat-card"><div class="stat-label">Founded</div><div class="stat-value" id="statNoFault">—</div></div>
     <div class="stat-card"><div class="stat-label">Needs Missed</div><div class="stat-value" id="statNeedsMissed">—</div></div>
     <div class="stat-card"><div class="stat-label">Returned to Prev Plan</div><div class="stat-value" id="statReturned">—</div></div>
   </div>
@@ -183,6 +195,26 @@
       </div>
     </div>
 
+
+    <div class="section-header">
+      <div class="section-title">Agent Summary</div>
+      <div class="result-count" id="agentSummaryCount"></div>
+    </div>
+    <div class="agent-summary-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Manager</th>
+            <th class="num">Total</th>
+            <th class="num">Founded</th>
+            <th class="num">Compliance Risk</th>
+          </tr>
+        </thead>
+        <tbody id="agentSummaryBody"></tbody>
+      </table>
+    </div>
+
     <div class="section-header">
       <div class="section-title">All Reviews</div>
       <div class="result-count" id="resultCount"></div>
@@ -191,7 +223,7 @@
       <div class="table-wrap">
         <table>
           <thead id="tableHead"></thead>
-          <tbody id="tableBody"><tr><td colspan="17" class="loading">Loading data…</td></tr></tbody>
+          <tbody id="tableBody"><tr><td colspan="13" class="loading">Loading data…</td></tr></tbody>
         </table>
       </div>
       <div class="pagination">
@@ -208,7 +240,7 @@ const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGo
 const PAGE_SIZE = 25;
 let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'rolling3m';
 const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,NEEDS:7,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
-const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','2+ Plans','Notes','Returned?','Prev Plan','Plan Sold','MARX Plan','Form Link'];
+const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
 
 function parseCSV(text) {
   const rows = [];
@@ -294,7 +326,7 @@ function buildCharts(rows) {
 function buildStats(rows) {
   document.getElementById('statTotal').textContent = rows.length;
   document.getElementById('statFalse').textContent = rows.filter(r=>(r[C.FALSE_CLAIMS]||'').trim().toUpperCase()==='Y').length;
-  document.getElementById('statNoFault').textContent = rows.filter(r=>(r[C.FINDINGS]||'').split(',').map(x=>x.trim()).includes('No Fault Found')).length;
+  document.getElementById('statNoFault').textContent = rows.filter(r=>!(r[C.FINDINGS]||'').split(',').map(x=>x.trim()).includes('No Fault Found') && (r[C.FINDINGS]||'').trim()).length;
   document.getElementById('statNeedsMissed').textContent = rows.filter(r=>{ const v=(r[C.NEEDS_MISSED]||'').trim(); return v&&v.toUpperCase()!=='N/A'&&v.toUpperCase()!=='N'; }).length;
   document.getElementById('statReturned').textContent = rows.filter(r=>(r[C.RETURNED]||'').trim().toUpperCase()==='Y').length;
 }
@@ -309,7 +341,7 @@ function renderTable() {
   const tb = document.getElementById('tableBody');
   document.getElementById('resultCount').textContent = '('+filteredRows.length+' records)';
   if (!pageRows.length) {
-    tb.innerHTML = '<tr><td colspan="17" style="text-align:center;padding:40px;color:#bbb">No results match your filters.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#bbb">No results match your filters.</td></tr>';
   } else {
     tb.innerHTML = pageRows.map(r => {
       const findings = (r[C.FINDINGS]||'').split(',').map(f=>f.trim()).filter(Boolean);
@@ -326,12 +358,8 @@ function renderTable() {
         +'<td><div class="td-wrap" title="'+esc(r[C.NEEDS])+'">'+esc(r[C.NEEDS]||'—')+'</div></td>'
         +'<td style="text-align:center">'+(fc==='Y'?'<span class="badge-y">Y</span>':fc==='N'?'<span class="badge-n">N</span>':esc(fc)||'—')+'</td>'
         +'<td class="td-tags">'+(nm.length?nm.map(f=>'<span class="tag tag-orange">'+esc(f)+'</span>').join(''):'—')+'</td>'
-        +'<td style="text-align:center">'+esc(r[C.MORE_PLANS]||'—')+'</td>'
-        +'<td><div class="td-wrap" title="'+esc(r[C.NOTES])+'" style="max-width:170px">'+esc(r[C.NOTES])+'</div></td>'
         +'<td>'+esc(r[C.RETURNED])+'</td>'
-        +'<td><div class="td-wrap" title="'+esc(r[C.PREV_PLAN])+'">'+esc(r[C.PREV_PLAN])+'</div></td>'
-        +'<td><div class="td-wrap" title="'+esc(r[C.PLAN_SOLD])+'">'+esc(r[C.PLAN_SOLD])+'</div></td>'
-        +'<td><div class="td-wrap" title="'+esc(r[C.CURRENT_MARX])+'">'+esc(r[C.CURRENT_MARX])+'</div></td>'
+        +'<td style="white-space:normal;min-width:120px">'+esc(r[C.PLAN_SOLD]||'—')+'</td>'
         +'<td>'+(fl?'<a class="link-btn" href="'+esc(fl)+'" target="_blank" rel="noopener">View &#8599;</a>':'—')+'</td>'
         +'</tr>';
     }).join('');
@@ -344,6 +372,33 @@ function renderTable() {
   document.getElementById('pageBtns').innerHTML = btns;
 }
 
+
+function buildAgentSummary(rows) {
+  const agents = {};
+  rows.forEach(r => {
+    const agent = (r[C.AGENT]||'').trim();
+    const manager = (r[C.MANAGER]||'').trim();
+    if (!agent) return;
+    if (!agents[agent]) agents[agent] = { manager, total: 0, founded: 0, risk: 0 };
+    agents[agent].total++;
+    const findings = (r[C.FINDINGS]||'').split(',').map(x=>x.trim());
+    if (!findings.includes('No Fault Found') && (r[C.FINDINGS]||'').trim()) agents[agent].founded++;
+    if ((r[C.FALSE_CLAIMS]||'').trim().toUpperCase()==='Y') agents[agent].risk++;
+  });
+  const sorted = Object.entries(agents).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('agentSummaryCount').textContent = '('+sorted.length+' agents)';
+  const tb = document.getElementById('agentSummaryBody');
+  if (!sorted.length) { tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:#bbb">No data for this period.</td></tr>'; return; }
+  tb.innerHTML = sorted.map(([agent, d]) =>
+    '<tr>'
+    +'<td>'+esc(agent)+'</td>'
+    +'<td>'+esc(d.manager)+'</td>'
+    +'<td class="num">'+d.total+'</td>'
+    +'<td class="num">'+d.founded+'</td>'
+    +'<td class="num risk">'+d.risk+'</td>'
+    +'</tr>'
+  ).join('');
+}
 function applyFilters() {
   const manager=document.getElementById('sbManager').value, agent=document.getElementById('sbAgent').value;
   const carrier=document.getElementById('sbCarrier').value, compliance=document.getElementById('sbCompliance').value;
@@ -357,7 +412,7 @@ function applyFilters() {
     if (dateFrom||dateTo) { const d=parseDate(r[dateColIdx]); if (!d) return false; if (dateFrom&&d<dateFrom) return false; if (dateTo&&d>dateTo) return false; }
     return true;
   });
-  currentPage = 1; buildStats(filteredRows); buildCharts(filteredRows); renderTable();
+  currentPage = 1; buildStats(filteredRows); buildCharts(filteredRows); buildAgentSummary(filteredRows); renderTable();
 }
 
 function resetFilters() {
@@ -383,7 +438,7 @@ function populateFilters() {
 }
 
 function showError(msg) {
-  document.getElementById('tableBody').innerHTML = '<tr><td colspan="17" class="error-msg">'+msg+'</td></tr>';
+  document.getElementById('tableBody').innerHTML = '<tr><td colspan="13" class="error-msg">'+msg+'</td></tr>';
   ['trendsChart','needsMissedChart','returnedChart'].forEach(id => { document.getElementById(id).innerHTML='<div class="error-msg">'+msg+'</div>'; });
 }
 
