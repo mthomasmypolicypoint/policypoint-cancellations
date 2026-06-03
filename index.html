@@ -100,6 +100,19 @@
   .loading { text-align: center; padding: 50px; color: #bbb; font-size: 13px; }
   .error-msg { text-align: center; padding: 36px; color: #c0392b; font-size: 13px; }
 
+
+  /* DOWNLOAD BUTTONS */
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .card-header .chart-title { margin-bottom: 0; }
+  .dl-btns { display: flex; gap: 5px; }
+  .dl-btn { padding: 3px 9px; border-radius: 4px; font-size: 10px; font-weight: 700; cursor: pointer; border: none; display: flex; align-items: center; gap: 3px; transition: opacity 0.15s; }
+  .dl-btn:hover { opacity: 0.82; }
+  .dl-btn.png { background: #eef0f5; color: #1a2744; }
+  .dl-btn.pdf { background: #f5a623; color: #fff; }
+  .dl-btn.csv { background: #eef0f5; color: #1a2744; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; justify-content: space-between; }
+  .section-header-left { display: flex; align-items: center; gap: 10px; }
+
   /* AGENT SUMMARY TABLE */
   .agent-summary-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; margin-bottom: 24px; }
   .agent-summary-card table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
@@ -112,6 +125,246 @@
   .agent-summary-card tbody td.num { text-align: center; font-weight: 700; color: #1a2744; }
   .agent-summary-card tbody td.num.risk { color: #c0392b; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js">
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
 </head>
 <body>
 
@@ -181,24 +434,24 @@
 
   <div class="content">
     <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-title">Trends — Top 10 Findings</div>
+      <div class="chart-card" id="chartCard0">
+        <div class="card-header"><div class="chart-title">Trends — Top 10 Findings</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard0','findings')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard0','Trends — Top 10 Findings')">&#8595; PDF</button></div></div>
         <div id="trendsChart"><div class="loading">Loading…</div></div>
       </div>
-      <div class="chart-card">
-        <div class="chart-title">Needs Missed — Top 10</div>
+      <div class="chart-card" id="chartCard1">
+        <div class="card-header"><div class="chart-title">Needs Missed — Top 10</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard1','needs-missed')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard1','Needs Missed — Top 10')">&#8595; PDF</button></div></div>
         <div id="needsMissedChart"><div class="loading">Loading…</div></div>
       </div>
-      <div class="chart-card">
-        <div class="chart-title">Returned to Prev Plan by Carrier</div>
+      <div class="chart-card" id="chartCard2">
+        <div class="card-header"><div class="chart-title">Returned to Prev Plan by Carrier</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard2','returned-by-carrier')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard2','Returned to Prev Plan by Carrier')">&#8595; PDF</button></div></div>
         <div id="returnedChart"><div class="loading">Loading…</div></div>
       </div>
     </div>
 
 
     <div class="section-header">
-      <div class="section-title">Agent Summary</div>
-      <div class="result-count" id="agentSummaryCount"></div>
+      <div class="section-header-left"><div class="section-title">Agent Summary</div><div class="result-count" id="agentSummaryCount"></div></div>
+      <div class="dl-btns"><button class="dl-btn csv" onclick="downloadAgentCSV()">&#8595; CSV</button><button class="dl-btn pdf" onclick="downloadAgentPDF()">&#8595; PDF</button></div>
     </div>
     <div class="agent-summary-card">
       <table>
@@ -216,8 +469,8 @@
     </div>
 
     <div class="section-header">
-      <div class="section-title">All Reviews</div>
-      <div class="result-count" id="resultCount"></div>
+      <div class="section-header-left"><div class="section-title">All Reviews</div><div class="result-count" id="resultCount"></div></div>
+      <div class="dl-btns"><button class="dl-btn csv" onclick="downloadReviewsCSV()">&#8595; CSV</button><button class="dl-btn pdf" onclick="downloadReviewsPDF()">&#8595; PDF</button></div>
     </div>
     <div class="table-card">
       <div class="table-wrap">
@@ -458,6 +711,85 @@ fetch(CSV_URL)
     populateFilters(); applyFilters();
   })
   .catch(err => { showError('Could not load data: ' + err.message); console.error(err); });
+
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 </script>
 </body>
 </html>
