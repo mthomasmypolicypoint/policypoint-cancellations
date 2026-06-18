@@ -153,7 +153,7 @@ function downloadChartPDF(cardId, title) {
 }
 
 function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
   );
@@ -166,7 +166,7 @@ function downloadAgentPDF() {
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
   pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
   );
@@ -233,7 +233,7 @@ function downloadChartPDF(cardId, title) {
 }
 
 function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
   );
@@ -246,7 +246,7 @@ function downloadAgentPDF() {
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
   pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
   );
@@ -313,7 +313,7 @@ function downloadChartPDF(cardId, title) {
 }
 
 function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
   );
@@ -326,7 +326,7 @@ function downloadAgentPDF() {
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
   pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
   );
@@ -460,7 +460,8 @@ function triggerDownload(content, mimeType, filename) {
           <tr>
             <th>Agent</th>
             <th>Manager</th>
-            <th class="num">Total</th>
+            <th class="num">Total Cancellations</th>
+            <th class="num">Total Reviewed</th>
             <th class="num">Founded</th>
             <th class="num">Compliance Risk</th>
           </tr>
@@ -714,7 +715,7 @@ function updateCancellations() {
   const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
   const [dateFrom, dateTo] = getDateRange();
   el.textContent = cancelRows.filter(r => {
-    if (agent && (r[CC.AGENT]||'').trim() !== agent) return false;
+    if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
     if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return false;
     if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
     if (dateFrom || dateTo) { const d = parseDate(r[dCol]); if (!d) return false; if (dateFrom && d < dateFrom) return false; if (dateTo && d > dateTo) return false; }
@@ -776,14 +777,41 @@ function buildAgentSummary(rows) {
     if (!findings.includes('No Fault Found') && (r[C.FINDINGS]||'').trim()) agents[agent].founded++;
     if ((r[C.FALSE_CLAIMS]||'').trim().toUpperCase()==='Y') agents[agent].risk++;
   });
+
+  // Per-agent cancellation counts from the Cancellations tab, under the same
+  // date window + carrier filters, matched to agents by close (fuzzy) name.
+  const carrier = document.getElementById('sbCarrier').value;
+  const useApp = document.getElementById('sbDateField').value === '3';
+  const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
+  const [cFrom, cTo] = getDateRange();
+  const cancelByKey = {}; // nameKey -> count
+  if (cancelLoaded) {
+    cancelRows.forEach(r => {
+      if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return;
+      if (cFrom || cTo) { const d = parseDate(r[dCol]); if (!d) return; if (cFrom && d < cFrom) return; if (cTo && d > cTo) return; }
+      const k = nameKey(r[CC.AGENT]); if (!k) return;
+      cancelByKey[k] = (cancelByKey[k]||0) + 1;
+    });
+  }
+  const cancelKeys = Object.keys(cancelByKey);
+  function cancelCountFor(agentName) {
+    const ak = nameKey(agentName);
+    if (!ak) return 0;
+    const tol = Math.max(1, Math.floor(ak.length * 0.15));
+    let total = 0;
+    cancelKeys.forEach(k => { if (k === ak || levenshtein(ak, k) <= tol) total += cancelByKey[k]; });
+    return total;
+  }
+
   const sorted = Object.entries(agents).sort((a,b)=>b[1].total-a[1].total);
   document.getElementById('agentSummaryCount').textContent = '('+sorted.length+' agents)';
   const tb = document.getElementById('agentSummaryBody');
-  if (!sorted.length) { tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:#bbb">No data for this period.</td></tr>'; return; }
+  if (!sorted.length) { tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#bbb">No data for this period.</td></tr>'; return; }
   tb.innerHTML = sorted.map(([agent, d]) =>
     '<tr>'
     +'<td>'+esc(agent)+'</td>'
     +'<td>'+esc(d.manager)+'</td>'
+    +'<td class="num">'+(cancelLoaded ? cancelCountFor(agent) : '—')+'</td>'
     +'<td class="num">'+d.total+'</td>'
     +'<td class="num">'+d.founded+'</td>'
     +'<td class="num risk">'+d.risk+'</td>'
@@ -859,6 +887,7 @@ function loadCancellations() {
       cancelRows = rows.slice(1).filter(r => r.some(c => c.trim()));
       cancelLoaded = true;
       updateCancellations();
+      buildAgentSummary(filteredRows);
     })
     .catch(err => { console.error('Cancellations load failed:', err); document.getElementById('statCancellations').textContent = '—'; });
 }
@@ -892,7 +921,7 @@ function downloadChartPDF(cardId, title) {
 }
 
 function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total','Founded','Compliance Risk'];
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
   );
@@ -905,7 +934,7 @@ function downloadAgentPDF() {
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
   pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total','Founded','Compliance Risk']];
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
   const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
     Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
   );
