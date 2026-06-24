@@ -974,152 +974,12 @@ function triggerDownload(content, mimeType, filename) {
 
 </script>
 
-<script>
-(function() {
-  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  const DENIALS_TOTALS = {
-    byCarrier: [["UnitedHealthcare",13],["WellCare",7],["Humana",5],["Cigna",2],["Devoted",2],["Anthem",1],["Elevance",1]],
-    topFindings: [["Duplicate",11],["Medicaid Issue",10],["Other",5]]
-  };
 
-  const AGENT_DENIAL_DATA = {
-    'Tiyanna Walton': { totalDenials: 0, agentErrors: 0, topReasons: ['N/A'] },
-    'Sara Jarrell':   { totalDenials: 0, agentErrors: 0, topReasons: ['N/A'] },
-    'Ryan Lefler':    { totalDenials: 1, agentErrors: 0, topReasons: ['Duplicate'] }
-  };
-
-  const AGENT_CANCEL_REASONS = {
-    'Tiyanna Walton': ['Attention to detail','Improper Plan Selection','Inaccurate/Incomplete Info','Needs Analysis','Facility not in network'],
-    'Sara Jarrell':   ['Inaccurate/Incomplete Info','Attention to detail','Improper Plan Selection'],
-    'Ryan Lefler':    ['Improper Plan Selection','Inaccurate/Incomplete Info']
-  };
-
-  const ROSTER_MANAGERS = {
-    'Tiyanna Walton': 'Nesia Jefferies',
-    'Sara Jarrell':   'John Tellez',
-    'Ryan Lefler':    'Brian Henderson'
-  };
-
-  function buildDenialsSection() {
-    const maxCarrier = DENIALS_TOTALS.byCarrier[0][1];
-    const maxFinding = DENIALS_TOTALS.topFindings[0][1];
-    const carrierBars = DENIALS_TOTALS.byCarrier.map(([carrier, count], i) =>
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">' +
-        '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">' + (i+1) + '</span>' +
-        '<span style="flex:0 0 130px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(carrier) + '</span>' +
-        '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:40px;"><div style="width:' + (count/maxCarrier*100) + '%;background:#1a2340;border-radius:3px;height:8px;"></div></div>' +
-        '<span style="font-size:0.78rem;font-weight:600;color:#1a2340;flex:0 0 24px;text-align:right;">' + count + '</span>' +
-      '</div>').join('');
-    const findingBars = DENIALS_TOTALS.topFindings.map(([finding, count], i) =>
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-        '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">' + (i+1) + '</span>' +
-        '<span style="flex:0 0 110px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(finding) + '</span>' +
-        '<span style="flex-shrink:0;font-size:0.75rem;font-weight:700;color:#fff;background:#f5a623;border-radius:10px;padding:1px 7px;min-width:28px;text-align:center;">' + count + '</span>' +
-        '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:30px;"><div style="width:' + (count/maxFinding*100) + '%;background:#f5a623;border-radius:3px;height:8px;"></div></div>' +
-      '</div>').join('');
-    return carrierBars + '|||' + findingBars;
-  }
-
-  function applyDashboardChanges() {
-    // 1. Titles
-    var topbarTitle = document.querySelector('.topbar-title');
-    if (topbarTitle) topbarTitle.textContent = 'Cancellations and Denials';
-    var sidebarSub = document.querySelector('.sidebar .sub');
-    if (sidebarSub) sidebarSub.textContent = 'Cancellations and Denials';
-    document.title = 'PolicyPoint — Cancellations and Denials Dashboard';
-
-    // 2. CANCELLATIONS header — inserted between topbar and stats-row
-    var main = document.querySelector('.main');
-    var statsRow = document.querySelector('.stats-row');
-    if (main && statsRow && !document.getElementById('cancellations-section-header')) {
-      var cancelHeader = document.createElement('div');
-      cancelHeader.id = 'cancellations-section-header';
-      cancelHeader.style.cssText = 'margin:12px 0 8px 0;padding:0 28px;';
-      cancelHeader.innerHTML = '<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:0.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;margin-bottom:0;">Cancellations</div>';
-      main.insertBefore(cancelHeader, statsRow);
-    }
-
-    // 3. DENIALS header + cards — inserted before Agent Summary section header
-    var content = document.querySelector('.main .content');
-    var agentSummaryHeader = content && content.querySelector('.section-header');
-    if (content && agentSummaryHeader && !document.getElementById('denials-section-header')) {
-      var denialsHeader = document.createElement('div');
-      denialsHeader.id = 'denials-section-header';
-      denialsHeader.style.cssText = 'margin:24px 0 12px 0;padding:0;';
-      denialsHeader.innerHTML = '<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:0.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;margin-bottom:0;">Denials</div>';
-      content.insertBefore(denialsHeader, agentSummaryHeader);
-
-      var parts = buildDenialsSection().split('|||');
-      var carrierBars = parts[0], findingBars = parts[1];
-      var denialsRow = document.createElement('div');
-      denialsRow.id = 'denials-stats-row';
-      denialsRow.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;';
-      denialsRow.innerHTML =
-        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:0 0 180px;">' +
-          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total Denials</div>' +
-          '<div style="font-size:2rem;font-weight:700;color:#1a2340;">31</div></div>' +
-        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:0 0 180px;">' +
-          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total Agent Errors</div>' +
-          '<div style="font-size:2rem;font-weight:700;color:#1a2340;">16</div></div>' +
-        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:1;min-width:0;">' +
-          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Count by Carrier</div>' +
-          carrierBars + '</div>' +
-        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:1;min-width:0;">' +
-          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Top Findings</div>' +
-          findingBars + '</div>';
-      content.insertBefore(denialsRow, agentSummaryHeader);
-    }
-
-    // 4. Agent Summary new columns (only add once)
-    var thead = document.querySelector('.agent-summary-card thead tr');
-    if (!thead) return;
-    var existingHeaders = Array.from(thead.querySelectorAll('th')).map(function(th) { return th.textContent.trim(); });
-    if (existingHeaders.indexOf('Top Cancellation Reason') !== -1) return;
-
-    [
-      { text: 'Top Cancellation Reason', cls: '' },
-      { text: 'Total Denials', cls: 'num' },
-      { text: 'Total Agent Error', cls: 'num' },
-      { text: 'Top Denial Reason', cls: '' }
-    ].forEach(function(h) {
-      var th = document.createElement('th');
-      th.className = h.cls; th.textContent = h.text; thead.appendChild(th);
-    });
-
-    var tbody = document.getElementById('agentSummaryBody');
-    if (!tbody) return;
-    Array.from(tbody.querySelectorAll('tr')).forEach(function(row) {
-      var cells = Array.from(row.cells);
-      var agentName = cells[0].textContent.trim();
-      var cancelReasons = AGENT_CANCEL_REASONS[agentName] || ['N/A'];
-      var denialData = AGENT_DENIAL_DATA[agentName] || { totalDenials: 0, agentErrors: 0, topReasons: ['N/A'] };
-      if (ROSTER_MANAGERS[agentName]) cells[1].textContent = ROSTER_MANAGERS[agentName];
-      var cancelTd = document.createElement('td'); cancelTd.style.cssText = 'font-size:0.82rem;'; cancelTd.textContent = cancelReasons.join(', '); row.appendChild(cancelTd);
-      var denialsTd = document.createElement('td'); denialsTd.className = 'num'; denialsTd.textContent = denialData.totalDenials; row.appendChild(denialsTd);
-      var errorsTd = document.createElement('td'); errorsTd.className = 'num'; errorsTd.textContent = denialData.agentErrors; row.appendChild(errorsTd);
-      var topReasonTd = document.createElement('td'); topReasonTd.style.cssText = 'font-size:0.82rem;'; topReasonTd.textContent = denialData.topReasons.join(', '); row.appendChild(topReasonTd);
-    });
-  }
-
-  // Wait for agentSummaryBody to be populated, then apply
-  var observer = new MutationObserver(function(mutations, obs) {
-    var tbody = document.getElementById('agentSummaryBody');
-    if (tbody && tbody.querySelectorAll('tr').length > 0) {
-      obs.disconnect();
-      applyDashboardChanges();
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-  setTimeout(applyDashboardChanges, 500);
-})();
-</script>
 
 <script>
 (function() {
   'use strict';
-
-  /* ---- Helpers ---- */
   function normMgr(m) {
     if (!m) return '';
     if (String(m).trim().toLowerCase() === 'john tellez') return 'JT Tellez';
@@ -1128,222 +988,146 @@ function triggerDownload(content, mimeType, filename) {
   function normName(s) {
     return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
   }
-  function getTopReasons(reasonsObj) {
-    var sorted = Object.entries(reasonsObj || {}).sort(function(a,b){ return b[1]-a[1]; });
+  function getTopReasons(obj) {
+    var sorted = Object.entries(obj||{}).sort(function(a,b){return b[1]-a[1];});
     if (!sorted.length) return ['N/A'];
-    var result = [], tiersCollected = 0, lastCount = null;
-    for (var i = 0; i < sorted.length; i++) {
-      var reason = sorted[i][0], count = sorted[i][1];
-      if (count !== lastCount) {
-        if (tiersCollected >= 2) break;
-        tiersCollected++;
-        lastCount = count;
-      }
-      result.push(reason);
+    var result=[], tiers=0, last=null;
+    for (var i=0;i<sorted.length;i++) {
+      if (sorted[i][1]!==last){if(tiers>=2)break;tiers++;last=sorted[i][1];}
+      result.push(sorted[i][0]);
     }
     return result;
   }
-  function escHtml(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-  /* ---- Denials data (loaded once on startup) ---- */
-  var agentDenialMap = {};
-  var totalDenialsCount = 0, totalAgentErrorsCount = 0;
-  var byCarrierMap = {}, topFindingsMap = {};
-  var denialDataReady = false;
+  var adm={}, totD=0, totE=0, byCar={}, byFind={};
 
-  function loadDenialsData() {
+  function loadDenials(){
     return fetch('https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:json&gid=0&range=A2:R2000&headers=0')
-      .then(function(r){ return r.text(); })
-      .then(function(text) {
-        var m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
-        if (!m) return;
-        var rows = JSON.parse(m[1]).table.rows.filter(function(r){ return r.c && r.c[0] && r.c[0].v; });
-        rows.forEach(function(r) {
-          var outcome = String(r.c[15]&&r.c[15].v||'').trim();
-          if (outcome.toLowerCase() !== 'denied') return;
-          var agent     = String(r.c[0]&&r.c[0].v||'').trim();
-          var carrier   = String(r.c[8]&&r.c[8].v||'').trim();
-          var reason    = String(r.c[13]&&r.c[13].v||'').trim();
-          var agentErr  = String(r.c[16]&&r.c[16].v||'').trim();
-          var key = normName(agent);
-          totalDenialsCount++;
-          if (carrier) byCarrierMap[carrier] = (byCarrierMap[carrier]||0)+1;
-          if (reason)  topFindingsMap[reason] = (topFindingsMap[reason]||0)+1;
-          if (agentErr.toLowerCase() === 'yes') totalAgentErrorsCount++;
-          if (!agentDenialMap[key]) agentDenialMap[key] = {totalDenials:0, agentErrors:0, reasons:{}};
-          agentDenialMap[key].totalDenials++;
-          if (agentErr.toLowerCase() === 'yes') agentDenialMap[key].agentErrors++;
-          if (reason) agentDenialMap[key].reasons[reason] = (agentDenialMap[key].reasons[reason]||0)+1;
+      .then(function(r){return r.text();})
+      .then(function(t){
+        var m=t.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
+        if(!m)return;
+        JSON.parse(m[1]).table.rows.filter(function(r){return r.c&&r.c[0]&&r.c[0].v;}).forEach(function(r){
+          if(String(r.c[15]&&r.c[15].v||'').trim().toLowerCase()!=='denied')return;
+          var ag=String(r.c[0]&&r.c[0].v||'').trim();
+          var ca=String(r.c[8]&&r.c[8].v||'').trim();
+          var re=String(r.c[13]&&r.c[13].v||'').trim();
+          var er=String(r.c[16]&&r.c[16].v||'').trim();
+          var k=normName(ag);
+          totD++;
+          if(ca)byCar[ca]=(byCar[ca]||0)+1;
+          if(re)byFind[re]=(byFind[re]||0)+1;
+          if(er.toLowerCase()==='yes')totE++;
+          if(!adm[k])adm[k]={d:0,e:0,r:{}};
+          adm[k].d++;
+          if(er.toLowerCase()==='yes')adm[k].e++;
+          if(re)adm[k].r[re]=(adm[k].r[re]||0)+1;
         });
-        denialDataReady = true;
-      })
-      .catch(function(e){ console.error('Denials load error:', e); });
+      }).catch(function(e){console.error(e);});
   }
 
-  /* ---- Build Denials cards HTML ---- */
-  function buildDenialsCardsHTML() {
-    var carrierSorted = Object.entries(byCarrierMap).sort(function(a,b){ return b[1]-a[1]; });
-    var maxCarrier = carrierSorted.length ? carrierSorted[0][1] : 1;
-    var findingsSorted = Object.entries(topFindingsMap).sort(function(a,b){ return b[1]-a[1]; });
-    var maxFinding = findingsSorted.length ? findingsSorted[0][1] : 1;
-    var top3 = findingsSorted.slice(0,3);
+  function barRow(i,label,count,max,col){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'+
+      '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">'+(i+1)+'</span>'+
+      '<span style="flex:0 0 130px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(label)+'</span>'+
+      '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:40px;"><div style="width:'+(count/max*100)+'%;background:'+col+';border-radius:3px;height:8px;"></div></div>'+
+      '<span style="font-size:0.78rem;font-weight:600;color:#1a2340;flex:0 0 24px;text-align:right;">'+count+'</span></div>';
+  }
+  function findingRow(i,label,count,max){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'+
+      '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">'+(i+1)+'</span>'+
+      '<span style="flex:0 0 110px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(label)+'</span>'+
+      '<span style="flex-shrink:0;font-size:0.75rem;font-weight:700;color:#fff;background:#f5a623;border-radius:10px;padding:1px 7px;min-width:28px;text-align:center;">'+count+'</span>'+
+      '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:30px;"><div style="width:'+(count/max*100)+'%;background:#f5a623;border-radius:3px;height:8px;"></div></div></div>';
+  }
 
-    var carrierBars = carrierSorted.map(function(item, i) {
-      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">' +
-        '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">'+(i+1)+'</span>' +
-        '<span style="flex:0 0 130px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(item[0])+'</span>' +
-        '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:40px;"><div style="width:'+(item[1]/maxCarrier*100)+'%;background:#1a2340;border-radius:3px;height:8px;"></div></div>' +
-        '<span style="font-size:0.78rem;font-weight:600;color:#1a2340;flex:0 0 24px;text-align:right;">'+item[1]+'</span></div>';
-    }).join('');
-
-    var findingBars = top3.map(function(item, i) {
-      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-        '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">'+(i+1)+'</span>' +
-        '<span style="flex:0 0 110px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(item[0])+'</span>' +
-        '<span style="flex-shrink:0;font-size:0.75rem;font-weight:700;color:#fff;background:#f5a623;border-radius:10px;padding:1px 7px;min-width:28px;text-align:center;">'+item[1]+'</span>' +
-        '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:30px;"><div style="width:'+(item[1]/maxFinding*100)+'%;background:#f5a623;border-radius:3px;height:8px;"></div></div>' +
-      '</div>';
-    }).join('');
-
-    return '<div id="denials-stats-row" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">' +
-      '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:0 0 180px;">' +
-        '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total Denials</div>' +
-        '<div id="denials-total-val" style="font-size:2rem;font-weight:700;color:#1a2340;">'+totalDenialsCount+'</div></div>' +
-      '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:0 0 180px;">' +
-        '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total Agent Errors</div>' +
-        '<div id="denials-errors-val" style="font-size:2rem;font-weight:700;color:#1a2340;">'+totalAgentErrorsCount+'</div></div>' +
-      '<div id="denials-carrier-card" style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:1;min-width:0;">' +
-        '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Count by Carrier</div>' +
-        carrierBars + '</div>' +
-      '<div id="denials-findings-card" style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:1;min-width:0;">' +
-        '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Top Findings</div>' +
-        findingBars + '</div>' +
+  function buildDenialsCards(){
+    var cs=Object.entries(byCar).sort(function(a,b){return b[1]-a[1];}); var mc=cs.length?cs[0][1]:1;
+    var fs=Object.entries(byFind).sort(function(a,b){return b[1]-a[1];}); var mf=fs.length?fs[0][1]:1;
+    return '<div id="denials-stats-row" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">'+
+      '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px 24px;flex:0 0 180px;"><div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Total Denials</div><div style="font-size:2rem;font-weight:700;color:#1a2340;">'+totD+'</div></div>'+
+      '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px 24px;flex:0 0 180px;"><div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Total Agent Errors</div><div style="font-size:2rem;font-weight:700;color:#1a2340;">'+totE+'</div></div>'+
+      '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px 24px;flex:1;min-width:0;"><div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Count by Carrier</div>'+cs.map(function(x,i){return barRow(i,x[0],x[1],mc,'#1a2340');}).join('')+'</div>'+
+      '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px 24px;flex:1;min-width:0;"><div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Top Findings</div>'+fs.slice(0,3).map(function(x,i){return findingRow(i,x[0],x[1],mf);}).join('')+'</div>'+
     '</div>';
   }
 
-  /* ---- Inject structural elements ---- */
-  function injectStructure() {
-    // 1. CANCELLATIONS header above stats-row
-    var main = document.querySelector('.main');
-    var statsRow = document.querySelector('.stats-row');
-    if (main && statsRow && !document.getElementById('cancellations-section-header')) {
-      var ch = document.createElement('div');
-      ch.id = 'cancellations-section-header';
-      ch.style.cssText = 'margin:12px 0 8px 0;padding:0 28px;';
-      ch.innerHTML = '<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:0.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;">Cancellations</div>';
-      main.insertBefore(ch, statsRow);
+  function injectStructure(){
+    var main=document.querySelector('.main'), sr=document.querySelector('.stats-row');
+    if(main&&sr&&!document.getElementById('cancellations-section-header')){
+      var ch=document.createElement('div');ch.id='cancellations-section-header';ch.style.cssText='margin:12px 0 8px 0;padding:0 28px;';
+      ch.innerHTML='<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;">Cancellations</div>';
+      main.insertBefore(ch,sr);
     }
-
-    // 2. DENIALS header + cards before Agent Summary section-header
-    var content = document.querySelector('.main .content');
-    var agentSecHeader = content && content.querySelector('.section-header');
-    if (content && agentSecHeader && !document.getElementById('denials-section-header')) {
-      var dh = document.createElement('div');
-      dh.id = 'denials-section-header';
-      dh.style.cssText = 'margin:24px 0 12px 0;padding:0;';
-      dh.innerHTML = '<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:0.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;">Denials</div>';
-      content.insertBefore(dh, agentSecHeader);
-
-      var cardsWrap = document.createElement('div');
-      cardsWrap.innerHTML = buildDenialsCardsHTML();
-      content.insertBefore(cardsWrap.firstElementChild, agentSecHeader);
+    var cnt=document.querySelector('.main .content'), ash=cnt&&cnt.querySelector('.section-header');
+    if(cnt&&ash&&!document.getElementById('denials-section-header')){
+      var dh=document.createElement('div');dh.id='denials-section-header';dh.style.cssText='margin:24px 0 12px 0;padding:0;';
+      dh.innerHTML='<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;">Denials</div>';
+      cnt.insertBefore(dh,ash);
+      var w=document.createElement('div');w.innerHTML=buildDenialsCards();cnt.insertBefore(w.firstElementChild,ash);
     }
   }
 
-  /* ---- Monkey-patch buildAgentSummary ---- */
-  function patchBuildAgentSummary() {
-    if (!window.buildAgentSummary || window.buildAgentSummary.__patched) return;
-    var _orig = window.buildAgentSummary;
-    window.buildAgentSummary = function(filteredRows) {
-      _orig(filteredRows);
-
-      // Compute per-agent top cancel reasons from filtered rows (AGENT=0, FINDINGS=6)
-      var agentCancelReasons = {};
-      (filteredRows || []).forEach(function(r) {
-        var agent = String(r[0]||'').trim();
-        if (!agent) return;
-        var key = normName(agent);
-        if (!agentCancelReasons[key]) agentCancelReasons[key] = {};
-        String(r[6]||'').split(',').map(function(f){ return f.trim(); }).filter(function(f){ return f && f !== 'No Fault Found'; }).forEach(function(f) {
-          agentCancelReasons[key][f] = (agentCancelReasons[key][f]||0)+1;
-        });
+  function patch(){
+    if(!window.buildAgentSummary||window.buildAgentSummary.__p)return;
+    var _o=window.buildAgentSummary;
+    window.buildAgentSummary=function(fr){
+      _o(fr);
+      // compute cancel reasons from filtered rows
+      var acr={};
+      (fr||[]).forEach(function(r){
+        var ag=String(r[0]||'').trim(); if(!ag)return;
+        var k=normName(ag); if(!acr[k])acr[k]={};
+        String(r[6]||'').split(',').map(function(f){return f.trim();}).filter(function(f){return f&&f!=='No Fault Found';}).forEach(function(f){acr[k][f]=(acr[k][f]||0)+1;});
       });
-
-      // Ensure thead has new headers
-      var thead = document.querySelector('.agent-summary-card thead tr');
-      if (thead) {
-        var existingHdrs = Array.from(thead.querySelectorAll('th')).map(function(th){ return th.textContent.trim(); });
-        if (existingHdrs.indexOf('Top Cancellation Reason') === -1) {
-          [
-            {text:'Top Cancellation Reason',cls:''},
-            {text:'Total Denials',cls:'num'},
-            {text:'Total Agent Error',cls:'num'},
-            {text:'Top Denial Reason',cls:''}
-          ].forEach(function(h) {
-            var th = document.createElement('th');
-            th.className = h.cls; th.textContent = h.text; thead.appendChild(th);
+      // thead
+      var th=document.querySelector('.agent-summary-card thead tr');
+      if(th){
+        var hs=Array.from(th.querySelectorAll('th')).map(function(x){return x.textContent.trim();});
+        if(hs.indexOf('Total Denials')===-1){
+          // Order: Total Denials | Total Agent Error | Top Cancellation Reason | Top Denial Reason
+          [{t:'Total Denials',c:'num'},{t:'Total Agent Error',c:'num'},{t:'Top Cancellation Reason',c:''},{t:'Top Denial Reason',c:''}].forEach(function(h){
+            var x=document.createElement('th');x.className=h.c;x.textContent=h.t;th.appendChild(x);
           });
         }
       }
-
-      // Add cells to each row
-      var tbody = document.getElementById('agentSummaryBody');
-      if (!tbody) return;
-      Array.from(tbody.querySelectorAll('tr')).forEach(function(row) {
-        // Remove previously added extra cells beyond col 6
-        while (row.cells.length > 6) row.deleteCell(row.cells.length - 1);
-        var agentName = String(row.cells[0]&&row.cells[0].textContent||'').trim();
-        var key = normName(agentName);
-
-        // Normalize manager
-        if (row.cells[1]) row.cells[1].textContent = normMgr(row.cells[1].textContent);
-
-        // Top Cancel Reason
-        var topCancel = getTopReasons(agentCancelReasons[key] || {});
-        var td1 = document.createElement('td'); td1.style.cssText = 'font-size:0.82rem;'; td1.textContent = topCancel.join(', '); row.appendChild(td1);
-
-        // Denial stats
-        var dd = agentDenialMap[key];
-        var td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = dd ? dd.totalDenials : 0; row.appendChild(td2);
-        var td3 = document.createElement('td'); td3.className = 'num'; td3.textContent = dd ? dd.agentErrors : 0; row.appendChild(td3);
-        var topDenial = getTopReasons(dd ? dd.reasons : {});
-        var td4 = document.createElement('td'); td4.style.cssText = 'font-size:0.82rem;'; td4.textContent = topDenial.join(', '); row.appendChild(td4);
+      // tbody
+      var tb=document.getElementById('agentSummaryBody'); if(!tb)return;
+      Array.from(tb.querySelectorAll('tr')).forEach(function(row){
+        while(row.cells.length>6)row.deleteCell(row.cells.length-1);
+        var an=String(row.cells[0]&&row.cells[0].textContent||'').trim(), k=normName(an);
+        if(row.cells[1])row.cells[1].textContent=normMgr(row.cells[1].textContent);
+        var dd=adm[k];
+        // Total Denials
+        var t1=document.createElement('td');t1.className='num';t1.textContent=dd?dd.d:0;row.appendChild(t1);
+        // Total Agent Error
+        var t2=document.createElement('td');t2.className='num';t2.textContent=dd?dd.e:0;row.appendChild(t2);
+        // Top Cancellation Reason (wrapped, narrower)
+        var tc=getTopReasons(acr[k]||{});
+        var t3=document.createElement('td');t3.style.cssText='font-size:.82rem;max-width:160px;white-space:normal;word-break:break-word;line-height:1.4;';t3.textContent=tc.join(', ');row.appendChild(t3);
+        // Top Denial Reason (wrapped, narrower)
+        var td2=getTopReasons(dd?dd.r:{});
+        var t4=document.createElement('td');t4.style.cssText='font-size:.82rem;max-width:160px;white-space:normal;word-break:break-word;line-height:1.4;';t4.textContent=td2.join(', ');row.appendChild(t4);
       });
     };
-    window.buildAgentSummary.__patched = true;
+    window.buildAgentSummary.__p=true;
   }
 
-  /* ---- Init ---- */
-  function init() {
-    // Update title/sidebar text
-    var tt = document.querySelector('.topbar-title');
-    if (tt) tt.textContent = 'Cancellations and Denials';
-    var ss = document.querySelector('.sidebar .sub');
-    if (ss) ss.textContent = 'Cancellations and Denials';
-    document.title = 'PolicyPoint — Cancellations and Denials Dashboard';
-
-    // Patch buildAgentSummary before data loads
-    patchBuildAgentSummary();
-
-    // Load denials data, then inject structure and trigger re-render
-    loadDenialsData().then(function() {
-      injectStructure();
-      if (typeof applyFilters === 'function') applyFilters();
-    });
+  function init(){
+    var tt=document.querySelector('.topbar-title');if(tt)tt.textContent='Cancellations and Denials';
+    var ss=document.querySelector('.sidebar .sub');if(ss)ss.textContent='Cancellations and Denials';
+    document.title='PolicyPoint — Cancellations and Denials Dashboard';
+    patch();
+    loadDenials().then(function(){injectStructure();if(typeof applyFilters==='function')applyFilters();});
   }
 
-  // Wait for page script to finish (agentSummaryBody populated = page is ready)
-  var observer = new MutationObserver(function(mutations, obs) {
-    var tbody = document.getElementById('agentSummaryBody');
-    var hasRows = tbody && tbody.querySelectorAll('tr').length > 0;
-    if (hasRows) { obs.disconnect(); init(); }
+  var obs=new MutationObserver(function(m,o){
+    var tb=document.getElementById('agentSummaryBody');
+    if(tb&&tb.querySelectorAll('tr').length>0){o.disconnect();init();}
   });
-  observer.observe(document.body, {childList:true, subtree:true});
-  // Also try immediately
-  setTimeout(init, 800);
-
+  obs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(init,800);
 })();
 </script>
 </body>
