@@ -422,7 +422,17 @@ function triggerDownload(content, mimeType, filename) {
       <div class="topbar-sub">Live data · Google Sheets</div>
     </div>
     <div class="last-updated" id="lastUpdated"></div>
-  </div>
+  
+    <div id="report-export-btn-wrap" style="display:flex;gap:8px;align-items:center;">
+      <button id="export-png-btn" onclick="exportReport('png')"
+        style="background:#1a2340;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.04em;">
+        &#8595; PNG Report
+      </button>
+      <button id="export-pdf-btn" onclick="exportReport('pdf')"
+        style="background:#f5a623;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.04em;">
+        &#8595; PDF Report
+      </button>
+    </div></div>
 
   <div class="stats-row">
     <div class="stat-card" style="border-top-color:#f5a623"><div class="stat-label">Total Cancellations</div><div class="stat-value" id="statCancellations">—</div></div>
@@ -980,27 +990,18 @@ function triggerDownload(content, mimeType, filename) {
 <script>
 (function() {
   'use strict';
-  function normMgr(m) {
-    if (!m) return '';
-    if (String(m).trim().toLowerCase() === 'john tellez') return 'JT Tellez';
-    return String(m).trim();
-  }
-  function normName(s) {
-    return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-  }
-  function getTopReasons(obj) {
-    var sorted = Object.entries(obj||{}).sort(function(a,b){return b[1]-a[1];});
-    if (!sorted.length) return ['N/A'];
-    var result=[], tiers=0, last=null;
-    for (var i=0;i<sorted.length;i++) {
-      if (sorted[i][1]!==last){if(tiers>=2)break;tiers++;last=sorted[i][1];}
-      result.push(sorted[i][0]);
-    }
+  function normMgr(m){if(!m)return '';if(String(m).trim().toLowerCase()==='john tellez')return 'JT Tellez';return String(m).trim();}
+  function normName(s){return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+  function getTopReasons(obj){
+    var sorted=Object.entries(obj||{}).sort(function(a,b){return b[1]-a[1];});
+    if(!sorted.length)return ['N/A'];
+    var result=[],tiers=0,last=null;
+    for(var i=0;i<sorted.length;i++){if(sorted[i][1]!==last){if(tiers>=2)break;tiers++;last=sorted[i][1];}result.push(sorted[i][0]);}
     return result;
   }
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-  var adm={}, totD=0, totE=0, byCar={}, byFind={};
+  var adm={},totD=0,totE=0,byCar={},byFind={};
 
   function loadDenials(){
     return fetch('https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:json&gid=0&range=A2:R2000&headers=0')
@@ -1010,17 +1011,11 @@ function triggerDownload(content, mimeType, filename) {
         if(!m)return;
         JSON.parse(m[1]).table.rows.filter(function(r){return r.c&&r.c[0]&&r.c[0].v;}).forEach(function(r){
           if(String(r.c[15]&&r.c[15].v||'').trim().toLowerCase()!=='denied')return;
-          var ag=String(r.c[0]&&r.c[0].v||'').trim();
-          var ca=String(r.c[8]&&r.c[8].v||'').trim();
-          var re=String(r.c[13]&&r.c[13].v||'').trim();
-          var er=String(r.c[16]&&r.c[16].v||'').trim();
-          var k=normName(ag);
-          totD++;
-          if(ca)byCar[ca]=(byCar[ca]||0)+1;
-          if(re)byFind[re]=(byFind[re]||0)+1;
+          var ag=String(r.c[0]&&r.c[0].v||'').trim(),ca=String(r.c[8]&&r.c[8].v||'').trim(),
+              re=String(r.c[13]&&r.c[13].v||'').trim(),er=String(r.c[16]&&r.c[16].v||'').trim(),k=normName(ag);
+          totD++;if(ca)byCar[ca]=(byCar[ca]||0)+1;if(re)byFind[re]=(byFind[re]||0)+1;
           if(er.toLowerCase()==='yes')totE++;
-          if(!adm[k])adm[k]={d:0,e:0,r:{}};
-          adm[k].d++;
+          if(!adm[k])adm[k]={d:0,e:0,r:{}};adm[k].d++;
           if(er.toLowerCase()==='yes')adm[k].e++;
           if(re)adm[k].r[re]=(adm[k].r[re]||0)+1;
         });
@@ -1041,10 +1036,9 @@ function triggerDownload(content, mimeType, filename) {
       '<span style="flex-shrink:0;font-size:0.75rem;font-weight:700;color:#fff;background:#f5a623;border-radius:10px;padding:1px 7px;min-width:28px;text-align:center;">'+count+'</span>'+
       '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:30px;"><div style="width:'+(count/max*100)+'%;background:#f5a623;border-radius:3px;height:8px;"></div></div></div>';
   }
-
   function buildDenialsCards(){
-    var cs=Object.entries(byCar).sort(function(a,b){return b[1]-a[1];}); var mc=cs.length?cs[0][1]:1;
-    var fs=Object.entries(byFind).sort(function(a,b){return b[1]-a[1];}); var mf=fs.length?fs[0][1]:1;
+    var cs=Object.entries(byCar).sort(function(a,b){return b[1]-a[1];}),mc=cs.length?cs[0][1]:1;
+    var fs=Object.entries(byFind).sort(function(a,b){return b[1]-a[1];}),mf=fs.length?fs[0][1]:1;
     return '<div id="denials-stats-row" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">'+
       '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px 24px;flex:0 0 180px;"><div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Total Denials</div><div style="font-size:2rem;font-weight:700;color:#1a2340;">'+totD+'</div></div>'+
       '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px 24px;flex:0 0 180px;"><div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Total Agent Errors</div><div style="font-size:2rem;font-weight:700;color:#1a2340;">'+totE+'</div></div>'+
@@ -1054,13 +1048,13 @@ function triggerDownload(content, mimeType, filename) {
   }
 
   function injectStructure(){
-    var main=document.querySelector('.main'), sr=document.querySelector('.stats-row');
+    var main=document.querySelector('.main'),sr=document.querySelector('.stats-row');
     if(main&&sr&&!document.getElementById('cancellations-section-header')){
       var ch=document.createElement('div');ch.id='cancellations-section-header';ch.style.cssText='margin:12px 0 8px 0;padding:0 28px;';
       ch.innerHTML='<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;">Cancellations</div>';
       main.insertBefore(ch,sr);
     }
-    var cnt=document.querySelector('.main .content'), ash=cnt&&cnt.querySelector('.section-header');
+    var cnt=document.querySelector('.main .content'),ash=cnt&&cnt.querySelector('.section-header');
     if(cnt&&ash&&!document.getElementById('denials-section-header')){
       var dh=document.createElement('div');dh.id='denials-section-header';dh.style.cssText='margin:24px 0 12px 0;padding:0;';
       dh.innerHTML='<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;">Denials</div>';
@@ -1074,45 +1068,87 @@ function triggerDownload(content, mimeType, filename) {
     var _o=window.buildAgentSummary;
     window.buildAgentSummary=function(fr){
       _o(fr);
-      // compute cancel reasons from filtered rows
       var acr={};
       (fr||[]).forEach(function(r){
-        var ag=String(r[0]||'').trim(); if(!ag)return;
-        var k=normName(ag); if(!acr[k])acr[k]={};
+        var ag=String(r[0]||'').trim();if(!ag)return;var k=normName(ag);if(!acr[k])acr[k]={};
         String(r[6]||'').split(',').map(function(f){return f.trim();}).filter(function(f){return f&&f!=='No Fault Found';}).forEach(function(f){acr[k][f]=(acr[k][f]||0)+1;});
       });
-      // thead
       var th=document.querySelector('.agent-summary-card thead tr');
       if(th){
         var hs=Array.from(th.querySelectorAll('th')).map(function(x){return x.textContent.trim();});
         if(hs.indexOf('Total Denials')===-1){
-          // Order: Total Denials | Total Agent Error | Top Cancellation Reason | Top Denial Reason
           [{t:'Total Denials',c:'num'},{t:'Total Agent Error',c:'num'},{t:'Top Cancellation Reason',c:''},{t:'Top Denial Reason',c:''}].forEach(function(h){
             var x=document.createElement('th');x.className=h.c;x.textContent=h.t;th.appendChild(x);
           });
         }
       }
-      // tbody
-      var tb=document.getElementById('agentSummaryBody'); if(!tb)return;
+      var tb=document.getElementById('agentSummaryBody');if(!tb)return;
       Array.from(tb.querySelectorAll('tr')).forEach(function(row){
         while(row.cells.length>6)row.deleteCell(row.cells.length-1);
-        var an=String(row.cells[0]&&row.cells[0].textContent||'').trim(), k=normName(an);
+        var an=String(row.cells[0]&&row.cells[0].textContent||'').trim(),k=normName(an);
         if(row.cells[1])row.cells[1].textContent=normMgr(row.cells[1].textContent);
         var dd=adm[k];
-        // Total Denials
         var t1=document.createElement('td');t1.className='num';t1.textContent=dd?dd.d:0;row.appendChild(t1);
-        // Total Agent Error
         var t2=document.createElement('td');t2.className='num';t2.textContent=dd?dd.e:0;row.appendChild(t2);
-        // Top Cancellation Reason (wrapped, narrower)
         var tc=getTopReasons(acr[k]||{});
         var t3=document.createElement('td');t3.style.cssText='font-size:.82rem;max-width:160px;white-space:normal;word-break:break-word;line-height:1.4;';t3.textContent=tc.join(', ');row.appendChild(t3);
-        // Top Denial Reason (wrapped, narrower)
         var td2=getTopReasons(dd?dd.r:{});
         var t4=document.createElement('td');t4.style.cssText='font-size:.82rem;max-width:160px;white-space:normal;word-break:break-word;line-height:1.4;';t4.textContent=td2.join(', ');row.appendChild(t4);
       });
     };
     window.buildAgentSummary.__p=true;
   }
+
+  /* ---- Export Report ---- */
+  window.exportReport=async function(format){
+    var bw=document.getElementById('report-export-btn-wrap');
+    var sb=document.querySelector('.sidebar');
+    var arh=null;Array.from(document.querySelectorAll('.section-header')).forEach(function(el){if(el.textContent.indexOf('All Reviews')!==-1)arh=el;});
+    var art=document.querySelector('.table-card');
+    var pg=document.querySelector('.pagination');
+    var toHide=[bw,sb,arh,art,pg].filter(Boolean);
+    var orig=toHide.map(function(el){return{el:el,d:el.style.display};});
+    var mel=document.querySelector('.main');
+    var oml=mel?mel.style.marginLeft:'',opl=mel?mel.style.paddingLeft:'',obo=document.body.style.overflow;
+    var pb=document.getElementById('export-png-btn'),pfb=document.getElementById('export-pdf-btn');
+    var opt=pb?pb.innerHTML:'',ofpt=pfb?pfb.innerHTML:'';
+    if(pb){pb.innerHTML='Generating…';pb.disabled=true;}if(pfb){pfb.innerHTML='Generating…';pfb.disabled=true;}
+    try{
+      toHide.forEach(function(el){el.style.display='none';});
+      if(mel){mel.style.marginLeft='0';mel.style.paddingLeft='28px';}
+      document.body.style.overflow='visible';
+      await new Promise(function(r){setTimeout(r,200);});
+      var re=document.querySelector('.main');
+      var cv=await html2canvas(re,{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#f0f2f5',logging:false,windowWidth:re.scrollWidth,width:re.scrollWidth,height:re.scrollHeight,scrollX:0,scrollY:0});
+      var now=new Date(),ds=now.toISOString().slice(0,10),fn='cancellations-and-denials-'+ds;
+      if(format==='png'){
+        var lk=document.createElement('a');lk.download=fn+'.png';lk.href=cv.toDataURL('image/png');lk.click();
+      }else{
+        var JP=window.jspdf.jsPDF,iw=cv.width,ih=cv.height,pw=297,ph=210,ratio=pw/(iw/2),pih=(ih/2)*ratio;
+        if(pih<=ph){
+          var pdf=new JP({orientation:'landscape',unit:'mm',format:'a4'});
+          pdf.addImage(cv.toDataURL('image/png'),'PNG',0,0,pw,pih);pdf.save(fn+'.pdf');
+        }else{
+          var pdf=new JP({orientation:'landscape',unit:'mm',format:'a4'});
+          var phPx=Math.floor(ph/ratio*2),yOff=0,pgN=0;
+          while(yOff<ih){
+            if(pgN>0)pdf.addPage();
+            var slH=Math.min(phPx,ih-yOff),sc=document.createElement('canvas');
+            sc.width=iw;sc.height=slH;var ctx=sc.getContext('2d');
+            ctx.drawImage(cv,0,yOff,iw,slH,0,0,iw,slH);
+            pdf.addImage(sc.toDataURL('image/png'),'PNG',0,0,pw,(slH/2)*ratio);
+            yOff+=slH;pgN++;
+          }
+          pdf.save(fn+'.pdf');
+        }
+      }
+    }finally{
+      orig.forEach(function(s){s.el.style.display=s.d;});
+      if(mel){mel.style.marginLeft=oml;mel.style.paddingLeft=opl;}
+      document.body.style.overflow=obo;
+      if(pb){pb.innerHTML=opt;pb.disabled=false;}if(pfb){pfb.innerHTML=ofpt;pfb.disabled=false;}
+    }
+  };
 
   function init(){
     var tt=document.querySelector('.topbar-title');if(tt)tt.textContent='Cancellations and Denials';
