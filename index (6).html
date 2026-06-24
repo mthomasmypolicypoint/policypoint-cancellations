@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolicyPoint — Cancellations and Denials Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; min-width: 220px; background: #1a2744; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; }
+  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-logo .policy { color: #fff; font-size: 20px; font-weight: 700; }
+  .sidebar-logo .point  { color: #f5a623; font-size: 20px; font-weight: 700; }
+  .sidebar-logo .sub    { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 3px; }
+  .sb-section { padding: 16px 16px 4px; }
+  .sb-section-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
+  .sb-label { font-size: 11px; color: rgba(255,255,255,0.65); margin-bottom: 5px; margin-top: 10px; }
+  .sb-select { width: 100%; padding: 8px 28px 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.45)'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; }
+  .sb-select:focus { outline: none; border-color: #f5a623; }
+  .sb-select option { background: #1a2744; color: #fff; }
+  .period-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 2px; }
+  .period-btn { padding: 7px 4px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: rgba(255,255,255,0.65); font-size: 11px; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .period-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .period-btn.active { background: #f5a623; border-color: #f5a623; color: #fff; font-weight: 700; }
+  .custom-dates { display: none; margin-top: 6px; }
+  .custom-dates.visible { display: block; }
+  .sb-input { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; margin-bottom: 5px; }
+  .sb-input:focus { outline: none; border-color: #f5a623; }
+  .sb-input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
+  .sb-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 6px 0; }
+  .btn-reset { margin: 10px 16px 20px; width: calc(100% - 32px); padding: 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .btn-reset:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+  /* MAIN */
+  .main { margin-left: 220px; flex: 1; min-height: 100vh; }
+  .topbar { background: #fff; border-bottom: 1px solid #e8eaf0; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-title { font-size: 16px; font-weight: 700; color: #1a2744; }
+  .topbar-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
+  .last-updated { font-size: 11px; color: #bbb; }
+
+  /* STATS */
+  .stats-row { display: flex; gap: 16px; padding: 22px 28px 0; flex-wrap: wrap; }
+  .stat-card { background: #fff; border-radius: 8px; padding: 18px 22px; flex: 1; min-width: 130px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-top: 3px solid #1a2744; }
+  .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #999; font-weight: 700; margin-bottom: 6px; }
+  .stat-value { font-size: 30px; font-weight: 700; color: #1a2744; }
+
+  /* CONTENT */
+  .content { padding: 22px 28px 40px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+  .chart-card { background: #fff; border-radius: 8px; padding: 20px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .chart-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a2744; margin-bottom: 14px; }
+
+  /* BAR ROWS */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .bar-rank { font-size: 10px; font-weight: 700; color: #ccc; width: 16px; text-align: right; flex-shrink: 0; }
+  .bar-label { font-size: 11px; color: #444; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-label.wide { width: 130px; }
+  .bar-label.med  { width: 110px; }
+  .bar-bg { flex: 1; background: #eef0f5; border-radius: 3px; height: 11px; overflow: hidden; }
+  .bar-fill { height: 11px; border-radius: 3px; }
+  .bar-fill.navy   { background: #1a2744; }
+  .bar-fill.orange { background: #f5a623; }
+  .bar-fill.teal   { background: #2e86ab; }
+  .bar-count { font-size: 11px; font-weight: 700; color: #1a2744; width: 28px; text-align: right; flex-shrink: 0; }
+  .no-data { color: #bbb; font-size: 12px; padding: 10px 0; }
+
+  /* TABLE */
+  .section-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a2744; }
+  .result-count { font-size: 11px; color: #aaa; }
+  .table-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  thead { background: #1a2744; color: #fff; }
+  thead th { padding: 10px 11px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { background: #223166; }
+  .sort-icon { margin-left: 3px; opacity: 0.4; font-size: 8px; }
+  thead th.sorted .sort-icon { opacity: 1; }
+  tbody tr { border-bottom: 1px solid #f0f2f5; }
+  tbody tr:hover { background: #f7f9fc; }
+  tbody td { padding: 7px 11px; vertical-align: top; }
+  .td-wrap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+  .td-tags { white-space: normal; max-width: 180px; }
+  .tag { display: inline-block; border-radius: 3px; padding: 1px 5px; font-size: 10px; margin: 1px 2px 1px 0; }
+  .tag-default { background: #eef0f5; color: #444; }
+  .tag-red    { background: #fdecea; color: #c0392b; }
+  .tag-orange { background: #fef3e2; color: #d68910; }
+  .link-btn { color: #1a2744; font-weight: 600; text-decoration: none; font-size: 10px; background: #eef0f5; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+  .link-btn:hover { background: #1a2744; color: #fff; }
+  .badge-y { background: #fdecea; color: #c0392b; border-radius: 3px; padding: 2px 6px; font-size: 10px; font-weight: 700; display: inline-block; }
+  .badge-n { background: #eafaf1; color: #1e8449; border-radius: 3px; padding: 2px 6px; font-size: 10px; font-weight: 700; display: inline-block; }
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid #f0f2f5; font-size: 11px; color: #999; }
+  .page-btns { display: flex; gap: 4px; }
+  .page-btns button { padding: 4px 9px; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  .page-btns button:hover { background: #eef0f5; }
+  .page-btns button.active { background: #1a2744; color: #fff; border-color: #1a2744; }
+  .page-btns button:disabled { opacity: 0.35; cursor: default; }
+  .loading { text-align: center; padding: 50px; color: #bbb; font-size: 13px; }
+  .error-msg { text-align: center; padding: 36px; color: #c0392b; font-size: 13px; }
+
+
+  /* DOWNLOAD BUTTONS */
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .card-header .chart-title { margin-bottom: 0; }
+  .dl-btns { display: flex; gap: 5px; }
+  .dl-btn { padding: 3px 9px; border-radius: 4px; font-size: 10px; font-weight: 700; cursor: pointer; border: none; display: flex; align-items: center; gap: 3px; transition: opacity 0.15s; }
+  .dl-btn:hover { opacity: 0.82; }
+  .dl-btn.png { background: #eef0f5; color: #1a2744; }
+  .dl-btn.pdf { background: #f5a623; color: #fff; }
+  .dl-btn.csv { background: #eef0f5; color: #1a2744; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; justify-content: space-between; }
+  .section-header-left { display: flex; align-items: center; gap: 10px; }
+
+  /* AGENT SUMMARY TABLE */
+  .agent-summary-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; margin-bottom: 24px; }
+  .agent-summary-card table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .agent-summary-card thead { background: #1a2744; color: #fff; }
+  .agent-summary-card thead th { padding: 10px 14px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .agent-summary-card thead th.num { text-align: center; }
+  .agent-summary-card tbody tr { border-bottom: 1px solid #f0f2f5; }
+  .agent-summary-card tbody tr:hover { background: #f7f9fc; }
+  .agent-summary-card tbody td { padding: 8px 14px; }
+  .agent-summary-card tbody td.num { text-align: center; font-weight: 700; color: #1a2744; }
+  .agent-summary-card tbody td.num.risk { color: #c0392b; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js">
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div><span class="policy">Policy</span><span class="point">Point</span></div>
+    <div class="sub">Cancellations and Denials</div>
+  </div>
+  <div class="sb-section">
+    <div class="sb-section-title">Date Filter</div>
+    <div class="sb-label">Date Field</div>
+    <select class="sb-select" id="sbDateField" onchange="applyFilters()">
+      <option value="3">App Submit Date</option>
+      <option value="4">Effective Date</option>
+    </select>
+    <div class="sb-label" style="margin-top:12px">Period</div>
+    <div class="period-btns">
+      <button class="period-btn" data-period="week" onclick="setPeriod('week')">This Week</button>
+      <button class="period-btn active" data-period="month" onclick="setPeriod('month')">This Month</button>
+      <button class="period-btn" data-period="rolling3m" onclick="setPeriod('rolling3m')">Rolling 3M</button>
+      <button class="period-btn" data-period="custom" onclick="setPeriod('custom')">Custom</button>
+    </div>
+    <div class="custom-dates" id="customDates">
+      <div class="sb-label" style="margin-top:8px">From</div>
+      <input type="date" class="sb-input" id="dateFrom" onchange="applyFilters()">
+      <div class="sb-label">To</div>
+      <input type="date" class="sb-input" id="dateTo" onchange="applyFilters()">
+    </div>
+  </div>
+  <hr class="sb-divider">
+  <div class="sb-section">
+    <div class="sb-section-title">Filters</div>
+    <div class="sb-label">Manager</div>
+    <select class="sb-select" id="sbManager" onchange="applyFilters()"><option value="">All Managers</option></select>
+    <div class="sb-label">Agent</div>
+    <select class="sb-select" id="sbAgent" onchange="applyFilters()"><option value="">All Agents</option></select>
+    <div class="sb-label">Carrier</div>
+    <select class="sb-select" id="sbCarrier" onchange="applyFilters()"><option value="">All Carriers</option></select>
+    <div class="sb-label">Compliance Risk</div>
+    <select class="sb-select" id="sbCompliance" onchange="applyFilters()">
+      <option value="">All</option>
+      <option value="Y">Yes</option>
+      <option value="N">No</option>
+    </select>
+  </div>
+  <button class="btn-reset" onclick="resetFilters()">&#8635; Reset Filters</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Cancellations and Denials</div>
+      <div class="topbar-sub">Live data · Google Sheets</div>
+    </div>
+    <div class="last-updated" id="lastUpdated"></div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card" style="border-top-color:#f5a623"><div class="stat-label">Total Cancellations</div><div class="stat-value" id="statCancellations">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value" id="statTotal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Compliance Risk</div><div class="stat-value" id="statFalse">—</div></div>
+    <div class="stat-card"><div class="stat-label">Founded</div><div class="stat-value" id="statNoFault">—</div></div>
+    <div class="stat-card"><div class="stat-label">Needs Missed</div><div class="stat-value" id="statNeedsMissed">—</div></div>
+    <div class="stat-card"><div class="stat-label">Returned to Prev Plan</div><div class="stat-value" id="statReturned">—</div></div>
+  </div>
+
+  <div class="content">
+    <div class="charts-row">
+      <div class="chart-card" id="chartCard0">
+        <div class="card-header"><div class="chart-title">Trends — Top 10 Findings</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard0','findings')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard0','Trends — Top 10 Findings')">&#8595; PDF</button></div></div>
+        <div id="trendsChart"><div class="loading">Loading…</div></div>
+      </div>
+      <div class="chart-card" id="chartCard1">
+        <div class="card-header"><div class="chart-title">Needs Missed — Top 10</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard1','needs-missed')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard1','Needs Missed — Top 10')">&#8595; PDF</button></div></div>
+        <div id="needsMissedChart"><div class="loading">Loading…</div></div>
+      </div>
+      <div class="chart-card" id="chartCard2">
+        <div class="card-header"><div class="chart-title">Returned to Prev Plan by Carrier</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard2','returned-by-carrier')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard2','Returned to Prev Plan by Carrier')">&#8595; PDF</button></div></div>
+        <div id="returnedChart"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+
+    <div class="section-header">
+      <div class="section-header-left"><div class="section-title">Agent Summary</div><div class="result-count" id="agentSummaryCount"></div></div>
+      <div class="dl-btns"><button class="dl-btn csv" onclick="downloadAgentCSV()">&#8595; CSV</button><button class="dl-btn pdf" onclick="downloadAgentPDF()">&#8595; PDF</button></div>
+    </div>
+    <div class="agent-summary-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Manager</th>
+            <th class="num">Total Cancellations</th>
+            <th class="num">Total Reviewed</th>
+            <th class="num">Founded</th>
+            <th class="num">Compliance Risk</th>
+          </tr>
+        </thead>
+        <tbody id="agentSummaryBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-header">
+      <div class="section-header-left"><div class="section-title">All Reviews</div><div class="result-count" id="resultCount"></div></div>
+      <div class="dl-btns"><button class="dl-btn csv" onclick="downloadReviewsCSV()">&#8595; CSV</button><button class="dl-btn pdf" onclick="downloadReviewsPDF()">&#8595; PDF</button></div>
+    </div>
+    <div class="table-card">
+      <div class="table-wrap">
+        <table>
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"><tr><td colspan="13" class="loading">Loading data…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span id="pageInfo"></span>
+        <div class="page-btns" id="pageBtns"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGolOCYlQ3ox1uNVMvH3es6Q0Ue0Fu3RsdQoksgDNOtCVQXnYTaYHaxTKLCtu-VLumM/pub?gid=0&single=true&output=csv';
+const PAGE_SIZE = 25;
+let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'month';
+let cancelRows = [], cancelLoaded = false;
+const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,NEEDS:7,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
+// Cancellations master tab (gid 762489755): Member, Phone, MBI, Carrier, State, Agent, App Submit Date, Effective Date, Date Added, Reviewed
+const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
+const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=762489755';
+const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGolOCYlQ3ox1uNVMvH3es6Q0Ue0Fu3RsdQoksgDNOtCVQXnYTaYHaxTKLCtu-VLumM/pub?gid=762489755&single=true&output=csv';
+// Roster tab (gid 1704502235): maps Agent -> Manager. Columns auto-detected by header name.
+const ROSTER_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=1704502235';
+let rosterReady = false;
+let rosterByKey = {};   // exact normalized token-key -> manager
+let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
+const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+
+function parseCSV(text) {
+  // Robust parser that handles quoted fields containing commas and newlines
+  const rows = [];
+  let i = 0;
+  while (i < text.length) {
+    const row = [];
+    // Parse one row
+    while (i < text.length) {
+      let cell = '';
+      if (text[i] === '"') {
+        // Quoted field — may contain commas and newlines
+        i++;
+        while (i < text.length) {
+          if (text[i] === '"' && text[i+1] === '"') { cell += '"'; i += 2; }
+          else if (text[i] === '"') { i++; break; }
+          else { cell += text[i++]; }
+        }
+      } else {
+        // Unquoted field — ends at comma or newline
+        while (i < text.length && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
+          cell += text[i++];
+        }
+      }
+      row.push(cell.trim());
+      if (text[i] === ',') { i++; continue; }
+      break; // end of row (newline or EOF)
+    }
+    // Skip line ending
+    if (text[i] === '\r') i++;
+    if (text[i] === '\n') i++;
+    if (row.some(c => c)) rows.push(row);
+  }
+  return rows;
+}
+
+function parseDate(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  const m = s.match(/^Date\((\d+),(\d+),(\d+)/); // gviz CSV date format
+  if (m) return new Date(+m[1], +m[2], +m[3]);
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+function getDateRange() {
+  const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eod = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+  if (activePeriod === 'week') { const s=new Date(today); s.setDate(today.getDate()-today.getDay()); return [s,eod]; }
+  if (activePeriod === 'month') { return [new Date(today.getFullYear(),today.getMonth(),1),eod]; }
+  if (activePeriod === 'rolling3m') { const s=new Date(today); s.setMonth(s.getMonth()-3); return [s,eod]; }
+  if (activePeriod === 'custom') { const f=document.getElementById('dateFrom').value, t=document.getElementById('dateTo').value; return [f?new Date(f):null, t?new Date(t+'T23:59:59'):null]; }
+  return [null,null];
+}
+
+function setPeriod(p) {
+  activePeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period===p));
+  document.getElementById('customDates').classList.toggle('visible', p==='custom');
+  applyFilters();
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function tagClass(f) {
+  const l = f.toLowerCase();
+  if (l.includes('pushy')) return 'tag-red';
+  if (l.includes('improper')||l.includes('inaccurate')||l.includes('inadequate')) return 'tag-orange';
+  return 'tag-default';
+}
+
+function buildBarChart(id, entries, colorClass, labelWidth) {
+  const el = document.getElementById(id);
+  if (!entries.length) { el.innerHTML='<div class="no-data">No data for this period.</div>'; return; }
+  const max = entries[0][1];
+  el.innerHTML = entries.map(([label,count],i) =>
+    '<div class="bar-row"><span class="bar-rank">'+(i+1)+'</span><span class="bar-label '+labelWidth+'" title="'+esc(label)+'">'+esc(label)+'</span><div class="bar-bg"><div class="bar-fill '+colorClass+'" style="width:'+Math.round(count/max*100)+'%"></div></div><span class="bar-count">'+count+'</span></div>'
+  ).join('');
+}
+
+function buildCharts(rows) {
+  const findingCounts = {};
+  rows.forEach(r => (r[C.FINDINGS]||'').split(',').map(x=>x.trim()).filter(x=>x&&x.toLowerCase()!=='no fault found').forEach(f => { findingCounts[f]=(findingCounts[f]||0)+1; }));
+  buildBarChart('trendsChart', Object.entries(findingCounts).sort((a,b)=>b[1]-a[1]).slice(0,10), 'navy', 'wide');
+
+  const needsCounts = {};
+  rows.forEach(r => (r[C.NEEDS_MISSED]||'').split(',').map(x=>x.trim()).filter(x=>x&&x.toUpperCase()!=='N'&&x.toUpperCase()!=='N/A').forEach(n => { needsCounts[n]=(needsCounts[n]||0)+1; }));
+  buildBarChart('needsMissedChart', Object.entries(needsCounts).sort((a,b)=>b[1]-a[1]).slice(0,10), 'orange', 'med');
+
+  const retCounts = {};
+  rows.forEach(r => { if ((r[C.RETURNED]||'').trim().toUpperCase()==='Y' && (r[C.CARRIER]||'').trim()) { const c=(r[C.CARRIER]||'').trim(); retCounts[c]=(retCounts[c]||0)+1; } });
+  buildBarChart('returnedChart', Object.entries(retCounts).sort((a,b)=>b[1]-a[1]), 'teal', 'med');
+}
+
+function buildStats(rows) {
+  document.getElementById('statTotal').textContent = rows.length;
+  document.getElementById('statFalse').textContent = rows.filter(r=>(r[C.FALSE_CLAIMS]||'').trim().toUpperCase()==='Y').length;
+  document.getElementById('statNoFault').textContent = rows.filter(r=>!(r[C.FINDINGS]||'').split(',').map(x=>x.trim()).includes('No Fault Found') && (r[C.FINDINGS]||'').trim()).length;
+  document.getElementById('statNeedsMissed').textContent = rows.filter(r=>{ const v=(r[C.NEEDS_MISSED]||'').trim(); return v&&v.toUpperCase()!=='N/A'&&v.toUpperCase()!=='N'; }).length;
+  document.getElementById('statReturned').textContent = rows.filter(r=>(r[C.RETURNED]||'').trim().toUpperCase()==='Y').length;
+}
+
+// ── ROSTER / NAME MATCHING (Agent -> Manager) ─────────────────
+// Normalize a name: lowercase, drop parentheticals, keep letters only,
+// strip common suffixes, collapse spaces.
+function normName(s) {
+  return String(s||'')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\b(jr|sr|ii|iii|iv|md|dr)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+// Order-independent key so "Mark Gallego" == "Gallego Mark" == "Gallego, Mark".
+function nameKey(s) { return normName(s).split(' ').filter(Boolean).sort().join(' '); }
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({length:n+1}, (_,i)=>i);
+  for (let i=1; i<=m; i++) {
+    let cur = [i];
+    for (let j=1; j<=n; j++) {
+      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1]===b[j-1]?0:1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// Close (not exact) name match. Exact normalized/token-key first,
+// then a small edit-distance tolerance scaled to name length.
+function closeNameMatch(a, b) {
+  if (!a || !b) return false;
+  if (nameKey(a) === nameKey(b)) return true;
+  const na = normName(a), nb = normName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const tol = Math.max(1, Math.floor(Math.min(na.length, nb.length) * 0.15));
+  return levenshtein(na, nb) <= tol;
+}
+
+// Given an agent name, return their manager from the roster (fuzzy).
+function managerForAgent(agentName) {
+  if (!rosterReady || !agentName) return '';
+  const k = nameKey(agentName);
+  if (rosterByKey[k]) return rosterByKey[k];
+  const na = normName(agentName);
+  let best = '', bestDist = Infinity;
+  rosterList.forEach(e => {
+    const d = levenshtein(na, e.norm);
+    if (d < bestDist) { bestDist = d; best = e.manager; }
+  });
+  const tol = Math.max(1, Math.floor(na.length * 0.15));
+  return bestDist <= tol ? best : '';
+}
+
+function detectRosterCols(header) {
+  let agentCol = -1, mgrCol = -1;
+  header.forEach((h, i) => {
+    const x = (h||'').toLowerCase();
+    if (mgrCol < 0 && (x.includes('manager') || x.includes('supervisor') || x.includes('team lead') || x.includes('upline') || x === 'lead')) mgrCol = i;
+  });
+  header.forEach((h, i) => {
+    const x = (h||'').toLowerCase();
+    if (agentCol < 0 && i !== mgrCol && (x.includes('agent') || x.includes('rep') || x.includes('name'))) agentCol = i;
+  });
+  return { agentCol, mgrCol };
+}
+
+function loadRoster() {
+  fetch(ROSTER_GVIZ_URL)
+    .then(r => { if (!r.ok) throw new Error('roster ' + r.status); return r.text(); })
+    .then(text => {
+      const rows = parseCSV(text).filter(r => r.some(c => c.trim()));
+      if (!rows.length) throw new Error('roster empty');
+      const { agentCol, mgrCol } = detectRosterCols(rows[0]);
+      if (agentCol < 0 || mgrCol < 0) { console.warn('Roster: could not detect Agent/Manager columns from header', rows[0]); return; }
+      rosterByKey = {}; rosterList = [];
+      rows.slice(1).forEach(r => {
+        const agent = (r[agentCol]||'').trim(), mgr = (r[mgrCol]||'').trim();
+        if (!agent || !mgr) return;
+        const k = nameKey(agent);
+        if (k && !rosterByKey[k]) rosterByKey[k] = mgr;
+        rosterList.push({ norm: normName(agent), manager: mgr });
+      });
+      rosterReady = true;
+      updateCancellations();
+    })
+    .catch(err => { console.error('Roster load failed:', err); });
+}
+
+// Total Cancellations comes from the separate Cancellations master tab.
+// Honors the date field + period and the Agent/Carrier filters (columns on that tab).
+// Manager is resolved per agent via the Roster tab (fuzzy name match).
+// Compliance Risk is not on that tab, so it does not affect this count.
+function updateCancellations() {
+  const el = document.getElementById('statCancellations');
+  if (!cancelLoaded) { el.textContent = '—'; return; }
+  const agent = document.getElementById('sbAgent').value;
+  const carrier = document.getElementById('sbCarrier').value;
+  const manager = document.getElementById('sbManager').value;
+  // A manager is selected but the roster hasn't loaded yet: can't resolve the mapping.
+  if (manager && !rosterReady) { el.textContent = '—'; return; }
+  const useApp = document.getElementById('sbDateField').value === '3';
+  const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
+  const [dateFrom, dateTo] = getDateRange();
+  el.textContent = cancelRows.filter(r => {
+    if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
+    if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return false;
+    if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
+    if (dateFrom || dateTo) { const d = parseDate(r[dCol]); if (!d) return false; if (dateFrom && d < dateFrom) return false; if (dateTo && d > dateTo) return false; }
+    return true;
+  }).length;
+}
+
+function buildHead() {
+  document.getElementById('tableHead').innerHTML = '<tr>'+HD.map((h,i)=>'<th onclick="sortBy('+i+')" class="'+(sortCol===i?'sorted':'')+'">'+h+'<span class="sort-icon">'+(sortCol===i?(sortAsc?'&#9650;':'&#9660;'):'&#8645;')+'</span></th>').join('')+'</tr>';
+}
+
+function renderTable() {
+  buildHead();
+  const start = (currentPage-1)*PAGE_SIZE, pageRows = filteredRows.slice(start, start+PAGE_SIZE);
+  const tb = document.getElementById('tableBody');
+  document.getElementById('resultCount').textContent = '('+filteredRows.length+' records)';
+  if (!pageRows.length) {
+    tb.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#bbb">No results match your filters.</td></tr>';
+  } else {
+    tb.innerHTML = pageRows.map(r => {
+      const findings = (r[C.FINDINGS]||'').split(',').map(f=>f.trim()).filter(Boolean);
+      const nm = (r[C.NEEDS_MISSED]||'').split(',').map(f=>f.trim()).filter(Boolean);
+      const fl = (r[C.FORM_LINK]||'').trim(), al = (r[C.AMS]||'').trim(), fc = (r[C.FALSE_CLAIMS]||'').trim().toUpperCase();
+      return '<tr>'
+        +'<td><div class="td-wrap" title="'+esc(r[C.AGENT])+'">'+esc(r[C.AGENT])+'</div></td>'
+        +'<td><div class="td-wrap" title="'+esc(r[C.MANAGER])+'">'+esc(r[C.MANAGER])+'</div></td>'
+        +'<td>'+(al?'<a class="link-btn" href="'+esc(al)+'" target="_blank" rel="noopener">Open &#8599;</a>':'—')+'</td>'
+        +'<td>'+esc(r[C.APP_DATE])+'</td>'
+        +'<td>'+esc(r[C.EFF_DATE])+'</td>'
+        +'<td><div class="td-wrap" title="'+esc(r[C.CARRIER])+'">'+esc(r[C.CARRIER])+'</div></td>'
+        +'<td class="td-tags">'+(findings.length?findings.map(f=>'<span class="tag '+tagClass(f)+'">'+esc(f)+'</span>').join(''):'—')+'</td>'
+        +'<td><div class="td-wrap" title="'+esc(r[C.NEEDS])+'">'+esc(r[C.NEEDS]||'—')+'</div></td>'
+        +'<td style="text-align:center">'+(fc==='Y'?'<span class="badge-y">Y</span>':fc==='N'?'<span class="badge-n">N</span>':esc(fc)||'—')+'</td>'
+        +'<td class="td-tags">'+(nm.length?nm.map(f=>'<span class="tag tag-orange">'+esc(f)+'</span>').join(''):'—')+'</td>'
+        +'<td>'+esc(r[C.RETURNED])+'</td>'
+        +'<td style="white-space:normal;min-width:120px">'+esc(r[C.PLAN_SOLD]||'—')+'</td>'
+        +'<td>'+(fl?'<a class="link-btn" href="'+esc(fl)+'" target="_blank" rel="noopener">View &#8599;</a>':'—')+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+  const total = filteredRows.length, totalPages = Math.max(1, Math.ceil(total/PAGE_SIZE));
+  document.getElementById('pageInfo').textContent = 'Showing '+Math.min(start+1,total)+'–'+Math.min(start+PAGE_SIZE,total)+' of '+total;
+  let btns = '<button onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>&#8249; Prev</button>';
+  for (let p=Math.max(1,currentPage-2); p<=Math.min(totalPages,currentPage+2); p++) btns += '<button onclick="goPage('+p+')" class="'+(p===currentPage?'active':'')+'">'+p+'</button>';
+  btns += '<button onclick="goPage('+(currentPage+1)+')" '+(currentPage===totalPages?'disabled':'')+'>Next &#8250;</button>';
+  document.getElementById('pageBtns').innerHTML = btns;
+}
+
+
+function buildAgentSummary(rows) {
+  const agents = {};
+  rows.forEach(r => {
+    const agent = (r[C.AGENT]||'').trim();
+    const manager = (r[C.MANAGER]||'').trim();
+    if (!agent) return;
+    if (!agents[agent]) agents[agent] = { manager, total: 0, founded: 0, risk: 0 };
+    agents[agent].total++;
+    const findings = (r[C.FINDINGS]||'').split(',').map(x=>x.trim());
+    if (!findings.includes('No Fault Found') && (r[C.FINDINGS]||'').trim()) agents[agent].founded++;
+    if ((r[C.FALSE_CLAIMS]||'').trim().toUpperCase()==='Y') agents[agent].risk++;
+  });
+
+  // Per-agent cancellation counts from the Cancellations tab, under the same
+  // date window + carrier filters, matched to agents by close (fuzzy) name.
+  const carrier = document.getElementById('sbCarrier').value;
+  const useApp = document.getElementById('sbDateField').value === '3';
+  const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
+  const [cFrom, cTo] = getDateRange();
+  const cancelByKey = {}; // nameKey -> count
+  if (cancelLoaded) {
+    cancelRows.forEach(r => {
+      if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return;
+      if (cFrom || cTo) { const d = parseDate(r[dCol]); if (!d) return; if (cFrom && d < cFrom) return; if (cTo && d > cTo) return; }
+      const k = nameKey(r[CC.AGENT]); if (!k) return;
+      cancelByKey[k] = (cancelByKey[k]||0) + 1;
+    });
+  }
+  const cancelKeys = Object.keys(cancelByKey);
+  function cancelCountFor(agentName) {
+    const ak = nameKey(agentName);
+    if (!ak) return 0;
+    const tol = Math.max(1, Math.floor(ak.length * 0.15));
+    let total = 0;
+    cancelKeys.forEach(k => { if (k === ak || levenshtein(ak, k) <= tol) total += cancelByKey[k]; });
+    return total;
+  }
+
+  const sorted = Object.entries(agents).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('agentSummaryCount').textContent = '('+sorted.length+' agents)';
+  const tb = document.getElementById('agentSummaryBody');
+  if (!sorted.length) { tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#bbb">No data for this period.</td></tr>'; return; }
+  tb.innerHTML = sorted.map(([agent, d]) =>
+    '<tr>'
+    +'<td>'+esc(agent)+'</td>'
+    +'<td>'+esc(d.manager)+'</td>'
+    +'<td class="num">'+(cancelLoaded ? cancelCountFor(agent) : '—')+'</td>'
+    +'<td class="num">'+d.total+'</td>'
+    +'<td class="num">'+d.founded+'</td>'
+    +'<td class="num risk">'+d.risk+'</td>'
+    +'</tr>'
+  ).join('');
+}
+function applyFilters() {
+  const manager=document.getElementById('sbManager').value, agent=document.getElementById('sbAgent').value;
+  const carrier=document.getElementById('sbCarrier').value, compliance=document.getElementById('sbCompliance').value;
+  const dateColIdx=parseInt(document.getElementById('sbDateField').value);
+  const [dateFrom,dateTo] = getDateRange();
+  filteredRows = allRows.filter(r => {
+    if (manager && r[C.MANAGER]!==manager) return false;
+    if (agent && r[C.AGENT]!==agent) return false;
+    if (carrier && r[C.CARRIER]!==carrier) return false;
+    if (compliance && (r[C.FALSE_CLAIMS]||'').trim().toUpperCase()!==compliance) return false;
+    if (dateFrom||dateTo) { const d=parseDate(r[dateColIdx]); if (!d) return false; if (dateFrom&&d<dateFrom) return false; if (dateTo&&d>dateTo) return false; }
+    return true;
+  });
+  currentPage = 1; buildStats(filteredRows); buildCharts(filteredRows); buildAgentSummary(filteredRows); updateCancellations(); renderTable();
+}
+
+function resetFilters() {
+  ['sbManager','sbAgent','sbCarrier','sbCompliance'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('sbDateField').value = '3';
+  document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = '';
+  setPeriod('month');
+}
+
+function sortBy(col) {
+  sortCol===col ? sortAsc=!sortAsc : (sortCol=col, sortAsc=true);
+  filteredRows.sort((a,b) => { const av=(a[col]||'').toLowerCase(), bv=(b[col]||'').toLowerCase(); return sortAsc?av.localeCompare(bv):bv.localeCompare(av); });
+  currentPage = 1; renderTable();
+}
+
+function goPage(p) { const t=Math.ceil(filteredRows.length/PAGE_SIZE); if (p<1||p>t) return; currentPage=p; renderTable(); }
+
+function populateFilters() {
+  const add = (selId, vals) => { const s=document.getElementById(selId); vals.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); };
+  add('sbManager', [...new Set(allRows.map(r=>r[C.MANAGER]).filter(Boolean))].sort());
+  add('sbAgent',   [...new Set(allRows.map(r=>r[C.AGENT]).filter(Boolean))].sort());
+  add('sbCarrier', [...new Set(allRows.map(r=>r[C.CARRIER]).filter(Boolean))].sort());
+}
+
+function showError(msg) {
+  document.getElementById('tableBody').innerHTML = '<tr><td colspan="13" class="error-msg">'+msg+'</td></tr>';
+  ['trendsChart','needsMissedChart','returnedChart'].forEach(id => { document.getElementById(id).innerHTML='<div class="error-msg">'+msg+'</div>'; });
+}
+
+document.getElementById('sbDateField').addEventListener('change', applyFilters);
+
+fetch(CSV_URL)
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+  .then(text => {
+    const rows = parseCSV(text);
+    allRows = rows.slice(1).filter(r => r.some(c => c.trim()));
+    document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+    populateFilters(); applyFilters();
+  })
+  .catch(err => { showError('Could not load data: ' + err.message); console.error(err); });
+
+// Load the Cancellations master tab for the Total Cancellations KPI.
+// Tries the gviz CSV endpoint (works when the sheet is link-viewable), then
+// falls back to the published-to-web URL. Failure leaves the KPI as a dash
+// and does not affect the rest of the dashboard.
+function loadCancellations() {
+  fetch(CANCEL_GVIZ_URL)
+    .then(r => { if (!r.ok) throw new Error('gviz ' + r.status); return r.text(); })
+    .then(t => { if (t.indexOf(',') === -1) throw new Error('not csv'); return t; })
+    .catch(() => fetch(CANCEL_PUB_URL).then(r => r.text()))
+    .then(text => {
+      const rows = parseCSV(text);
+      cancelRows = rows.slice(1).filter(r => r.some(c => c.trim()));
+      cancelLoaded = true;
+      updateCancellations();
+      buildAgentSummary(filteredRows);
+    })
+    .catch(err => { console.error('Cancellations load failed:', err); document.getElementById('statCancellations').textContent = '—'; });
+}
+loadCancellations();
+loadRoster();
+
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
+
+function downloadChartPNG(cardId, filename) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+}
+
+function downloadChartPDF(cardId, title) {
+  const el = document.getElementById(cardId);
+  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
+    pdf.save(title + '.pdf');
+  });
+}
+
+function downloadAgentCSV() {
+  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
+  );
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
+}
+
+function downloadAgentPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Agent Summary', 40, 40);
+  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
+  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
+  pdf.save('agent-summary.pdf');
+}
+
+function downloadReviewsCSV() {
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const rows = filteredRows.map(r => headers.map((h, i) => {
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
+  }));
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
+  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
+}
+
+function downloadReviewsPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
+  pdf.text('Cancellation Reviews', 40, 40);
+  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
+  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
+  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
+  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
+  pdf.save('cancellation-reviews.pdf');
+}
+
+function triggerDownload(content, mimeType, filename) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+</script>
+
+<script>
+(function() {
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  const DENIALS_TOTALS = {
+    byCarrier: [["UnitedHealthcare",13],["WellCare",7],["Humana",5],["Cigna",2],["Devoted",2],["Anthem",1],["Elevance",1]],
+    topFindings: [["Duplicate",11],["Medicaid Issue",10],["Other",5]]
+  };
+
+  const AGENT_DENIAL_DATA = {
+    'Tiyanna Walton': { totalDenials: 0, agentErrors: 0, topReasons: ['N/A'] },
+    'Sara Jarrell':   { totalDenials: 0, agentErrors: 0, topReasons: ['N/A'] },
+    'Ryan Lefler':    { totalDenials: 1, agentErrors: 0, topReasons: ['Duplicate'] }
+  };
+
+  const AGENT_CANCEL_REASONS = {
+    'Tiyanna Walton': ['Attention to detail','Improper Plan Selection','Inaccurate/Incomplete Info','Needs Analysis','Facility not in network'],
+    'Sara Jarrell':   ['Inaccurate/Incomplete Info','Attention to detail','Improper Plan Selection'],
+    'Ryan Lefler':    ['Improper Plan Selection','Inaccurate/Incomplete Info']
+  };
+
+  const ROSTER_MANAGERS = {
+    'Tiyanna Walton': 'Nesia Jefferies',
+    'Sara Jarrell':   'John Tellez',
+    'Ryan Lefler':    'Brian Henderson'
+  };
+
+  function buildDenialsSection() {
+    const maxCarrier = DENIALS_TOTALS.byCarrier[0][1];
+    const maxFinding = DENIALS_TOTALS.topFindings[0][1];
+    const carrierBars = DENIALS_TOTALS.byCarrier.map(([carrier, count], i) =>
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">' +
+        '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">' + (i+1) + '</span>' +
+        '<span style="flex:0 0 130px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(carrier) + '</span>' +
+        '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:40px;"><div style="width:' + (count/maxCarrier*100) + '%;background:#1a2340;border-radius:3px;height:8px;"></div></div>' +
+        '<span style="font-size:0.78rem;font-weight:600;color:#1a2340;flex:0 0 24px;text-align:right;">' + count + '</span>' +
+      '</div>').join('');
+    const findingBars = DENIALS_TOTALS.topFindings.map(([finding, count], i) =>
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+        '<span style="width:14px;text-align:right;font-size:0.73rem;color:#7b8a9e;flex-shrink:0;">' + (i+1) + '</span>' +
+        '<span style="flex:0 0 110px;font-size:0.78rem;color:#1a2340;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(finding) + '</span>' +
+        '<span style="flex-shrink:0;font-size:0.75rem;font-weight:700;color:#fff;background:#f5a623;border-radius:10px;padding:1px 7px;min-width:28px;text-align:center;">' + count + '</span>' +
+        '<div style="flex:1;background:#e8ecf0;border-radius:3px;height:8px;min-width:30px;"><div style="width:' + (count/maxFinding*100) + '%;background:#f5a623;border-radius:3px;height:8px;"></div></div>' +
+      '</div>').join('');
+    return carrierBars + '|||' + findingBars;
+  }
+
+  function applyDashboardChanges() {
+    // 1. Titles
+    var topbarTitle = document.querySelector('.topbar-title');
+    if (topbarTitle) topbarTitle.textContent = 'Cancellations and Denials';
+    var sidebarSub = document.querySelector('.sidebar .sub');
+    if (sidebarSub) sidebarSub.textContent = 'Cancellations and Denials';
+    document.title = 'PolicyPoint — Cancellations and Denials Dashboard';
+
+    // 2. CANCELLATIONS header — inserted between topbar and stats-row
+    var main = document.querySelector('.main');
+    var statsRow = document.querySelector('.stats-row');
+    if (main && statsRow && !document.getElementById('cancellations-section-header')) {
+      var cancelHeader = document.createElement('div');
+      cancelHeader.id = 'cancellations-section-header';
+      cancelHeader.style.cssText = 'margin:12px 0 8px 0;padding:0 28px;';
+      cancelHeader.innerHTML = '<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:0.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;margin-bottom:0;">Cancellations</div>';
+      main.insertBefore(cancelHeader, statsRow);
+    }
+
+    // 3. DENIALS header + cards — inserted before Agent Summary section header
+    var content = document.querySelector('.main .content');
+    var agentSummaryHeader = content && content.querySelector('.section-header');
+    if (content && agentSummaryHeader && !document.getElementById('denials-section-header')) {
+      var denialsHeader = document.createElement('div');
+      denialsHeader.id = 'denials-section-header';
+      denialsHeader.style.cssText = 'margin:24px 0 12px 0;padding:0;';
+      denialsHeader.innerHTML = '<div style="font-size:1.25rem;font-weight:700;color:#1a2340;letter-spacing:0.04em;text-transform:uppercase;border-bottom:2px solid #1a2340;padding-bottom:6px;margin-bottom:0;">Denials</div>';
+      content.insertBefore(denialsHeader, agentSummaryHeader);
+
+      var parts = buildDenialsSection().split('|||');
+      var carrierBars = parts[0], findingBars = parts[1];
+      var denialsRow = document.createElement('div');
+      denialsRow.id = 'denials-stats-row';
+      denialsRow.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;';
+      denialsRow.innerHTML =
+        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:0 0 180px;">' +
+          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total Denials</div>' +
+          '<div style="font-size:2rem;font-weight:700;color:#1a2340;">31</div></div>' +
+        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:0 0 180px;">' +
+          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total Agent Errors</div>' +
+          '<div style="font-size:2rem;font-weight:700;color:#1a2340;">16</div></div>' +
+        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:1;min-width:0;">' +
+          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Count by Carrier</div>' +
+          carrierBars + '</div>' +
+        '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);padding:20px 24px;flex:1;min-width:0;">' +
+          '<div style="font-size:0.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Top Findings</div>' +
+          findingBars + '</div>';
+      content.insertBefore(denialsRow, agentSummaryHeader);
+    }
+
+    // 4. Agent Summary new columns (only add once)
+    var thead = document.querySelector('.agent-summary-card thead tr');
+    if (!thead) return;
+    var existingHeaders = Array.from(thead.querySelectorAll('th')).map(function(th) { return th.textContent.trim(); });
+    if (existingHeaders.indexOf('Top Cancellation Reason') !== -1) return;
+
+    [
+      { text: 'Top Cancellation Reason', cls: '' },
+      { text: 'Total Denials', cls: 'num' },
+      { text: 'Total Agent Error', cls: 'num' },
+      { text: 'Top Denial Reason', cls: '' }
+    ].forEach(function(h) {
+      var th = document.createElement('th');
+      th.className = h.cls; th.textContent = h.text; thead.appendChild(th);
+    });
+
+    var tbody = document.getElementById('agentSummaryBody');
+    if (!tbody) return;
+    Array.from(tbody.querySelectorAll('tr')).forEach(function(row) {
+      var cells = Array.from(row.cells);
+      var agentName = cells[0].textContent.trim();
+      var cancelReasons = AGENT_CANCEL_REASONS[agentName] || ['N/A'];
+      var denialData = AGENT_DENIAL_DATA[agentName] || { totalDenials: 0, agentErrors: 0, topReasons: ['N/A'] };
+      if (ROSTER_MANAGERS[agentName]) cells[1].textContent = ROSTER_MANAGERS[agentName];
+      var cancelTd = document.createElement('td'); cancelTd.style.cssText = 'font-size:0.82rem;'; cancelTd.textContent = cancelReasons.join(', '); row.appendChild(cancelTd);
+      var denialsTd = document.createElement('td'); denialsTd.className = 'num'; denialsTd.textContent = denialData.totalDenials; row.appendChild(denialsTd);
+      var errorsTd = document.createElement('td'); errorsTd.className = 'num'; errorsTd.textContent = denialData.agentErrors; row.appendChild(errorsTd);
+      var topReasonTd = document.createElement('td'); topReasonTd.style.cssText = 'font-size:0.82rem;'; topReasonTd.textContent = denialData.topReasons.join(', '); row.appendChild(topReasonTd);
+    });
+  }
+
+  // Wait for agentSummaryBody to be populated, then apply
+  var observer = new MutationObserver(function(mutations, obs) {
+    var tbody = document.getElementById('agentSummaryBody');
+    if (tbody && tbody.querySelectorAll('tr').length > 0) {
+      obs.disconnect();
+      applyDashboardChanges();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  setTimeout(applyDashboardChanges, 500);
+})();
+</script>
+</body>
+</html>
