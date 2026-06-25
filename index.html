@@ -1166,5 +1166,140 @@ function triggerDownload(content, mimeType, filename) {
   setTimeout(init,800);
 })();
 </script>
+
+<script>
+(function() {
+  'use strict';
+
+  var DENIALS_GVIZ =
+    'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?gid=0&headers=1';
+  var DC = { AGENT:0, MANAGER:1, CARRIER:8, DENIAL_REASON:13, OUTCOME:15, AGENT_ERROR:16, SUB_DATE:5, EFF_DATE:6 };
+
+  function ncr(s){ return String(s||'').toLowerCase().replace(/\s+/g,''); }
+
+  function parseDenialDate(cell){
+    if(!cell||!cell.v) return null;
+    var m=String(cell.v).match(/Date\((\d+),(\d+),(\d+)\)/);
+    return m ? new Date(+m[1],+m[2],+m[3]) : null;
+  }
+
+  function cv(cell){ return String(cell&&cell.v||'').trim(); }
+
+  function cacheDenialRows(){
+    return fetch(DENIALS_GVIZ)
+      .then(function(r){return r.text();})
+      .then(function(t){
+        var m=t.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
+        if(!m) return;
+        var rows=JSON.parse(m[1]).table.rows;
+        window._allDenialRows = rows
+          .filter(function(r){return r.c&&r.c[0]&&r.c[0].v;})
+          .filter(function(r){return cv(r.c[DC.OUTCOME]).toLowerCase()==='denied';})
+          .map(function(r){
+            return {
+              ag:cv(r.c[DC.AGENT]), mg:cv(r.c[DC.MANAGER]), ca:cv(r.c[DC.CARRIER]),
+              re:cv(r.c[DC.DENIAL_REASON]), er:cv(r.c[DC.AGENT_ERROR]),
+              subDate:r.c[DC.SUB_DATE]||null, effDate:r.c[DC.EFF_DATE]||null
+            };
+          });
+      })
+      .catch(function(e){console.error('Denials cache error:',e);});
+  }
+
+  function filterDenialRows(){
+    if(!window._allDenialRows) return [];
+    var mgEl=document.getElementById('sbManager');
+    var agEl=document.getElementById('sbAgent');
+    var caEl=document.getElementById('sbCarrier');
+    var dfEl=document.getElementById('sbDateField');
+    var manager=mgEl?mgEl.value:'', agent=agEl?agEl.value:'', carrier=caEl?caEl.value:'';
+    var dateColIdx=dfEl?parseInt(dfEl.value,10):3;
+    var dr=(typeof getDateRange==='function')?getDateRange():[null,null];
+    var dateFrom=dr[0] instanceof Date?dr[0]:null, dateTo=dr[1] instanceof Date?dr[1]:null;
+
+    return window._allDenialRows.filter(function(row){
+      if(agent   && row.ag!==agent)              return false;
+      if(manager && row.mg!==manager)            return false;
+      if(carrier && ncr(row.ca)!==ncr(carrier))  return false;
+      if(dateFrom||dateTo){
+        var cell=(dateColIdx===4)?row.effDate:row.subDate;
+        var d=parseDenialDate(cell);
+        if(!d) return false;
+        if(dateFrom&&d<dateFrom) return false;
+        if(dateTo  &&d>dateTo)   return false;
+      }
+      return true;
+    });
+  }
+
+  function barRow(i,label,count,max,col){
+    var pct=max?Math.round(count/max*100):0;
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+      '<span style="font-size:.7rem;color:#7b8a9e;width:14px;text-align:right">'+i+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">'+label+'</div>'+
+        '<div style="height:6px;border-radius:3px;background:#e8ecf0;margin-top:2px">'+
+          '<div style="height:6px;border-radius:3px;background:'+col+';width:'+pct+'%"></div>'+
+        '</div></div>'+
+      '<span style="font-size:.78rem;font-weight:600;color:#1a2340">'+count+'</span></div>';
+  }
+
+  function findingRow(i,label,count,max){
+    var pct=max?Math.round(count/max*100):0;
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+      '<span style="font-size:.7rem;color:#7b8a9e;width:14px;text-align:right">'+i+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">'+label+'</div>'+
+        '<div style="height:6px;border-radius:3px;background:#e8ecf0;margin-top:2px">'+
+          '<div style="height:6px;border-radius:3px;background:#f5a623;width:'+pct+'%"></div>'+
+        '</div></div>'+
+      '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:#f5a623;color:#fff;font-size:.72rem;font-weight:700;padding:0 4px">'+count+'</span></div>';
+  }
+
+  window.rebuildDenialsSection = function(){
+    var statsRow=document.getElementById('denials-stats-row');
+    if(!statsRow||statsRow.children.length<4) return;
+    var rows=filterDenialRows();
+    var totD=0,totE=0,byCar={},byFind={};
+    rows.forEach(function(row){
+      totD++;
+      if(row.ca) byCar[row.ca]=(byCar[row.ca]||0)+1;
+      if(row.re) byFind[row.re]=(byFind[row.re]||0)+1;
+      if(row.er.toLowerCase()==='yes') totE++;
+    });
+    var c0=statsRow.children[0]; if(c0.children[1]) c0.children[1].textContent=totD;
+    var c1=statsRow.children[1]; if(c1.children[1]) c1.children[1].textContent=totE;
+    var cs=Object.entries(byCar).sort(function(a,b){return b[1]-a[1];}), mcC=cs.length?cs[0][1]:1;
+    statsRow.children[2].innerHTML=
+      '<div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Count by Carrier</div>'+
+      (cs.length?cs.slice(0,7).map(function(e,i){return barRow(i+1,e[0],e[1],mcC,'#1a2340');}).join(''):'<div style="color:#7b8a9e;font-size:.82rem">No data</div>');
+    var fs=Object.entries(byFind).sort(function(a,b){return b[1]-a[1];}), mcF=fs.length?fs[0][1]:1;
+    statsRow.children[3].innerHTML=
+      '<div style="font-size:.72rem;font-weight:600;color:#7b8a9e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Top Findings</div>'+
+      (fs.length?fs.slice(0,5).map(function(e,i){return findingRow(i+1,e[0],e[1],mcF);}).join(''):'<div style="color:#7b8a9e;font-size:.82rem">No data</div>');
+  };
+
+  function wrapWithRebuild(fnName){
+    var orig=window[fnName];
+    if(typeof orig!=='function') return;
+    window[fnName]=function(){ orig.apply(this,arguments); window.rebuildDenialsSection(); };
+  }
+
+  function install(){
+    if(typeof applyFilters==='function'&&typeof getDateRange==='function'){
+      cacheDenialRows().then(function(){
+        window.rebuildDenialsSection();
+        wrapWithRebuild('applyFilters');
+        wrapWithRebuild('resetFilters');
+        wrapWithRebuild('setPeriod');
+      });
+    } else {
+      setTimeout(install, 200);
+    }
+  }
+
+  install();
+})();
+</script>
 </body>
 </html>
