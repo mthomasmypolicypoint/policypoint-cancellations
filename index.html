@@ -175,7 +175,7 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
     const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
@@ -255,7 +255,7 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
     const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
@@ -335,7 +335,7 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
     const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
@@ -508,7 +508,7 @@ const PAGE_SIZE = 25;
 let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'month';
 let cancelRows = [], cancelLoaded = false;
 let enrollRows = [], enrollLoaded = false;
-const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,FALSE_CLAIMS:7,NEEDS_MISSED:8,MORE_PLANS:9,NOTES:10,RETURNED:11,PREV_PLAN:12,PLAN_SOLD:13,CURRENT_MARX:14,FORM_LINK:15 };
+const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
 // Cancellations master tab (gid 762489755): Member, Phone, MBI, Carrier, State, Agent, App Submit Date, Effective Date, Date Added, Reviewed
 const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
 // Enrollment sheet (1LlxjOsN25cpjlOX5vfa1o_qSh6_XqzB-ZvRzxFXADdE): Policy ID, First Name, Last Name, MBI, Phone, Servicing Agent, Additional Agent, App Submit Date, Eff Date
@@ -521,7 +521,7 @@ const ENROLL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1LlxjOsN25cpjlOX
 let rosterReady = false;
 let rosterByKey = {};   // exact normalized token-key -> manager
 let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
-const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
 
 function parseCSV(text) {
   // Robust parser that handles quoted fields containing commas and newlines
@@ -798,8 +798,7 @@ function renderTable() {
         +'<td><div class="td-wrap" title="'+esc(r[C.CARRIER])+'">'+esc(r[C.CARRIER])+'</div></td>'
         +'<td class="td-tags">'+(findings.length?findings.map(f=>'<span class="tag '+tagClass(f)+'">'+esc(f)+'</span>').join(''):'—')+'</td>'
         +'<td style="text-align:center">'+(fc==='Y'?'<span class="badge-y">Y</span>':fc==='N'?'<span class="badge-n">N</span>':esc(fc)||'—')+'</td>'
-        +'<td class="td-tags">'+(nm.length?nm.map(f=>'<span class="tag tag-orange">'+esc(f)+'</span>').join(''):'—')+'</td>'
-        +'<td>'+esc(r[C.RETURNED])+'</td>'
+                +'<td style="text-align:center">'+(r[C.RETURNED]==='Y'?'<span class="badge-y">Y</span>':r[C.RETURNED]==='N'?'<span class="badge-n">N</span>':esc(r[C.RETURNED])||'—')+'</td>'
         +'<td style="white-space:normal;min-width:120px">'+esc(r[C.PLAN_SOLD]||'—')+'</td>'
         +'<td>'+(fl?'<a class="link-btn" href="'+esc(fl)+'" target="_blank" rel="noopener">View &#8599;</a>':'—')+'</td>'
         +'</tr>';
@@ -1016,7 +1015,7 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
     const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
