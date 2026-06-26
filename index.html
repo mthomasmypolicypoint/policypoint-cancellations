@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PolicyPoint â Cancellations and Denials Dashboard</title>
+<title>PolicyPoint — Cancellations and Denials Dashboard</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; display: flex; min-height: 100vh; }
 
   /* SIDEBAR */
   .sidebar { width: 220px; min-width: 220px; background: #1a2744; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; }
-  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,h255,255,0.1); }
   .sidebar-logo .policy { color: #fff; font-size: 20px; font-weight: 700; }
   .sidebar-logo .point  { color: #f5a623; font-size: 20px; font-weight: 700; }
   .sidebar-logo .sub    { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 3px; }
@@ -175,9 +175,9 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
   }));
   const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
@@ -255,9 +255,9 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
   }));
   const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
@@ -335,9 +335,9 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
   }));
   const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
@@ -435,23 +435,23 @@ function triggerDownload(content, mimeType, filename) {
     </div></div>
 
   <div class="stats-row">
-    <div class="stat-card" style="border-top-color:#1a7cd8"><div class="stat-label">Total Apps Submitted</div><div class="stat-value" id="statAppsSubmitted">â</div></div>
-    <div class="stat-card" style="border-top-color:#f5a623"><div class="stat-label">Total Cancellations</div><div class="stat-value" id="statCancellations">â</div></div>
-    <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value" id="statTotal">â</div></div>
-    <div class="stat-card"><div class="stat-label">Compliance Risk</div><div class="stat-value" id="statFalse">â</div></div>
-    <div class="stat-card"><div class="stat-label">Founded</div><div class="stat-value" id="statNoFault">â</div></div>
-    <div class="stat-card"><div class="stat-label">Needs Missed</div><div class="stat-value" id="statNeedsMissed">â</div></div>
-    <div class="stat-card"><div class="stat-label">Returned to Prev Plan</div><div class="stat-value" id="statReturned">â</div></div>
+    <div class="stat-card" style="border-top-color:#1a7cd8"><div class="stat-label">Total Apps Submitted</div><div class="stat-value" id="statAppsSubmitted">—</div></div>
+    <div class="stat-card" style="border-top-color:#f5a623"><div class="stat-label">Total Cancellations</div><div class="stat-value" id="statCancellations">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value" id="statTotal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Compliance Risk</div><div class="stat-value" id="statFalse">—</div></div>
+    <div class="stat-card"><div class="stat-label">Founded</div><div class="stat-value" id="statNoFault">—</div></div>
+    <div class="stat-card"><div class="stat-label">Needs Missed</div><div class="stat-value" id="statNeedsMissed">—</div></div>
+    <div class="stat-card"><div class="stat-label">Returned to Prev Plan</div><div class="stat-value" id="statReturned">—</div></div>
   </div>
 
   <div class="content">
     <div class="charts-row">
       <div class="chart-card" id="chartCard0">
-        <div class="card-header"><div class="chart-title">Trends â Top 10 Findings</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard0','findings')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard0','Trends â Top 10 Findings')">&#8595; PDF</button></div></div>
+        <div class="card-header"><div class="chart-title">Trends — Top 10 Findings</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard0','findings')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard0','Trends — Top 10 Findings')">&#8595; PDF</button></div></div>
         <div id="trendsChart"><div class="loading">Loadingâ¦</div></div>
       </div>
       <div class="chart-card" id="chartCard1">
-        <div class="card-header"><div class="chart-title">Needs Missed â Top 10</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard1','needs-missed')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard1','Needs Missed â Top 10')">&#8595; PDF</button></div></div>
+        <div class="card-header"><div class="chart-title">Needs Missed — Top 10</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard1','needs-missed')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard1','Needs Missed — Top 10')">&#8595; PDF</button></div></div>
         <div id="needsMissedChart"><div class="loading">Loadingâ¦</div></div>
       </div>
       <div class="chart-card" id="chartCard2">
@@ -508,7 +508,7 @@ const PAGE_SIZE = 25;
 let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'month';
 let cancelRows = [], cancelLoaded = false;
 let enrollRows = [], enrollLoaded = false;
-const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,NEEDS:7,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
+const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,FALSE_CLAIMS:7,NEEDS_MISSED:8,MORE_PLANS:9,NOTES:10,RETURNED:11,PREV_PLAN:12,PLAN_SOLD:13,CURRENT_MARX:14,FORM_LINK:15 };
 // Cancellations master tab (gid 762489755): Member, Phone, MBI, Carrier, State, Agent, App Submit Date, Effective Date, Date Added, Reviewed
 const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
 // Enrollment sheet (1LlxjOsN25cpjlOX5vfa1o_qSh6_XqzB-ZvRzxFXADdE): Policy ID, First Name, Last Name, MBI, Phone, Servicing Agent, Additional Agent, App Submit Date, Eff Date
@@ -521,7 +521,7 @@ const ENROLL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1LlxjOsN25cpjlOX
 let rosterReady = false;
 let rosterByKey = {};   // exact normalized token-key -> manager
 let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
-const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
 
 function parseCSV(text) {
   // Robust parser that handles quoted fields containing commas and newlines
@@ -533,7 +533,7 @@ function parseCSV(text) {
     while (i < text.length) {
       let cell = '';
       if (text[i] === '"') {
-        // Quoted field â may contain commas and newlines
+        // Quoted field — may contain commas and newlines
         i++;
         while (i < text.length) {
           if (text[i] === '"' && text[i+1] === '"') { cell += '"'; i += 2; }
@@ -541,7 +541,7 @@ function parseCSV(text) {
           else { cell += text[i++]; }
         }
       } else {
-        // Unquoted field â ends at comma or newline
+        // Unquoted field — ends at comma or newline
         while (i < text.length && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
           cell += text[i++];
         }
@@ -721,12 +721,12 @@ function loadRoster() {
 // Compliance Risk is not on that tab, so it does not affect this count.
 function updateCancellations() {
   const el = document.getElementById('statCancellations');
-  if (!cancelLoaded) { el.textContent = 'â'; return; }
+  if (!cancelLoaded) { el.textContent = '—'; return; }
   const agent = document.getElementById('sbAgent').value;
   const carrier = document.getElementById('sbCarrier').value;
   const manager = document.getElementById('sbManager').value;
   // A manager is selected but the roster hasn't loaded yet: can't resolve the mapping.
-  if (manager && !rosterReady) { el.textContent = 'â'; return; }
+  if (manager && !rosterReady) { el.textContent = '—'; return; }
   const useApp = document.getElementById('sbDateField').value === '3';
   const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
   const [dateFrom, dateTo] = getDateRange();
@@ -741,10 +741,10 @@ function updateCancellations() {
 
 function updateAppsSubmitted() {
   const el = document.getElementById('statAppsSubmitted');
-  if (!enrollLoaded) { el.textContent = 'â'; return; }
+  if (!enrollLoaded) { el.textContent = '—'; return; }
   const agent = document.getElementById('sbAgent').value;
   const manager = document.getElementById('sbManager').value;
-  if (manager && !rosterReady) { el.textContent = 'â'; return; }
+  if (manager && !rosterReady) { el.textContent = '—'; return; }
   const useApp = document.getElementById('sbDateField').value === '3';
   const [dateFrom, dateTo] = getDateRange();
   el.textContent = enrollRows.filter(r => {
@@ -770,7 +770,7 @@ function loadEnrollments() {
       updateAppsSubmitted();
       buildAgentSummary(filteredRows);
     })
-    .catch(err => { console.error('Enrollments load failed:', err); document.getElementById('statAppsSubmitted').textContent = 'â'; });
+    .catch(err => { console.error('Enrollments load failed:', err); document.getElementById('statAppsSubmitted').textContent = '—'; });
 }
 
 function buildHead() {
@@ -792,17 +792,16 @@ function renderTable() {
       return '<tr>'
         +'<td><div class="td-wrap" title="'+esc(r[C.AGENT])+'">'+esc(r[C.AGENT])+'</div></td>'
         +'<td><div class="td-wrap" title="'+esc(r[C.MANAGER])+'">'+esc(r[C.MANAGER])+'</div></td>'
-        +'<td>'+(al?'<a class="link-btn" href="'+esc(al)+'" target="_blank" rel="noopener">Open &#8599;</a>':'â')+'</td>'
+        +'<td>'+(al?'<a class="link-btn" href="'+esc(al)+'" target="_blank" rel="noopener">Open &#8599;</a>':'—')+'</td>'
         +'<td>'+esc(r[C.APP_DATE])+'</td>'
         +'<td>'+esc(r[C.EFF_DATE])+'</td>'
         +'<td><div class="td-wrap" title="'+esc(r[C.CARRIER])+'">'+esc(r[C.CARRIER])+'</div></td>'
-        +'<td class="td-tags">'+(findings.length?findings.map(f=>'<span class="tag '+tagClass(f)+'">'+esc(f)+'</span>').join(''):'â')+'</td>'
-        +'<td><div class="td-wrap" title="'+esc(r[C.NEEDS])+'">'+esc(r[C.NEEDS]||'â')+'</div></td>'
-        +'<td style="text-align:center">'+(fc==='Y'?'<span class="badge-y">Y</span>':fc==='N'?'<span class="badge-n">N</span>':esc(fc)||'â')+'</td>'
-        +'<td class="td-tags">'+(nm.length?nm.map(f=>'<span class="tag tag-orange">'+esc(f)+'</span>').join(''):'â')+'</td>'
+        +'<td class="td-tags">'+(findings.length?findings.map(f=>'<span class="tag '+tagClass(f)+'">'+esc(f)+'</span>').join(''):'—')+'</td>'
+        +'<td style="text-align:center">'+(fc==='Y'?'<span class="badge-y">Y</span>':fc==='N'?'<span class="badge-n">N</span>':esc(fc)||'—')+'</td>'
+        +'<td class="td-tags">'+(nm.length?nm.map(f=>'<span class="tag tag-orange">'+esc(f)+'</span>').join(''):'—')+'</td>'
         +'<td>'+esc(r[C.RETURNED])+'</td>'
-        +'<td style="white-space:normal;min-width:120px">'+esc(r[C.PLAN_SOLD]||'â')+'</td>'
-        +'<td>'+(fl?'<a class="link-btn" href="'+esc(fl)+'" target="_blank" rel="noopener">View &#8599;</a>':'â')+'</td>'
+        +'<td style="white-space:normal;min-width:120px">'+esc(r[C.PLAN_SOLD]||'—')+'</td>'
+        +'<td>'+(fl?'<a class="link-btn" href="'+esc(fl)+'" target="_blank" rel="noopener">View &#8599;</a>':'—')+'</td>'
         +'</tr>';
     }).join('');
   }
@@ -883,8 +882,8 @@ function buildAgentSummary(rows) {
     '<tr>'
     +'<td>'+esc(agent)+'</td>'
     +'<td>'+esc(d.manager)+'</td>'
-    +'<td class="num">'+(enrollLoaded ? enrollCountFor(agent) : 'â')+'</td>'
-    +'<td class="num">'+(cancelLoaded ? cancelCountFor(agent) : 'â')+'</td>'
+    +'<td class="num">'+(enrollLoaded ? enrollCountFor(agent) : '—')+'</td>'
+    +'<td class="num">'+(cancelLoaded ? cancelCountFor(agent) : '—')+'</td>'
     +'<td class="num">'+d.total+'</td>'
     +'<td class="num">'+d.founded+'</td>'
     +'<td class="num risk">'+d.risk+'</td>'
@@ -962,7 +961,7 @@ function loadCancellations() {
       updateCancellations();
       buildAgentSummary(filteredRows);
     })
-    .catch(err => { console.error('Cancellations load failed:', err); document.getElementById('statCancellations').textContent = 'â'; });
+    .catch(err => { console.error('Cancellations load failed:', err); document.getElementById('statCancellations').textContent = '—'; });
 }
 loadCancellations();
 loadRoster();
@@ -1017,9 +1016,9 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
   }));
   const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
@@ -1217,7 +1216,7 @@ function triggerDownload(content, mimeType, filename) {
   function init(){
     var tt=document.querySelector('.topbar-title');if(tt)tt.textContent='Cancellations and Denials';
     var ss=document.querySelector('.sidebar .sub');if(ss)ss.textContent='Cancellations and Denials';
-    document.title='PolicyPoint â Cancellations and Denials Dashboard';
+    document.title='PolicyPoint — Cancellations and Denials Dashboard';
     patch();
     loadDenials().then(function(){injectStructure();if(typeof applyFilters==='function')applyFilters();});
   }
