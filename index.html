@@ -806,7 +806,7 @@ function renderTable() {
     }).join('');
   }
   const total = filteredRows.length, totalPages = Math.max(1, Math.ceil(total/PAGE_SIZE));
-  document.getElementById('pageInfo').textContent = 'Showing '+Math.min(start+1,total)+'â'+Math.min(start+PAGE_SIZE,total)+' of '+total;
+  document.getElementById('pageInfo').textContent = 'Showing '+Math.min(start+1,total)+'–'+Math.min(start+PAGE_SIZE,total)+' of '+total;
   let btns = '<button onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>&#8249; Prev</button>';
   for (let p=Math.max(1,currentPage-2); p<=Math.min(totalPages,currentPage+2); p++) btns += '<button onclick="goPage('+p+')" class="'+(p===currentPage?'active':'')+'">'+p+'</button>';
   btns += '<button onclick="goPage('+(currentPage+1)+')" '+(currentPage===totalPages?'disabled':'')+'>Next &#8250;</button>';
