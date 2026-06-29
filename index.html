@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PolicyPoint — Cancellations and Denials Dashboard</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }h
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; display: flex; min-height: 100vh; }
 
   /* SIDEBAR */
   .sidebar { width: 220px; min-width: 220px; background: #1a2744; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; }
   .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,h255,255,0.1); }
-  .sidebar-logo .policy { color: #fff; font-size: 20px; font-weight: 700; }
+  .sidebar-logo .policy { color: #fff; font-size: 20px; font-weight: 700; }h
   .sidebar-logo .point  { color: #f5a623; font-size: 20px; font-weight: 700; }
   .sidebar-logo .sub    { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 3px; }
   .sb-section { padding: 16px 16px 4px; }
@@ -752,7 +752,7 @@ function updateAppsSubmitted() {
     const parts = raw.split(','); const normalized = parts.length === 2 ? (parts[1].trim()+' '+parts[0].trim()) : raw;
     if (agent && !closeNameMatch(normalized, agent)) return false;
     if (manager && !closeNameMatch(managerForAgent(normalized), manager)) return false;
-    const d = parseDate(r[EC.APP_DATE]); if (!d) return false;
+    const d = parseDate(r[EC.EFF_DATE]); if (!d) return false;
     if (dateFrom && d < dateFrom) return false;
     if (dateTo && d > dateTo) return false;
     return true;
@@ -855,7 +855,7 @@ function buildAgentSummary(rows) {
   const enrollByKey = {}; // nameKey -> count
   if (enrollLoaded) {
     enrollRows.forEach(r => {
-      if (cFrom || cTo) { const d = parseDate(r[EC.APP_DATE]); if (!d) return; if (cFrom && d < cFrom) return; if (cTo && d > cTo) return; }
+      if (cFrom || cTo) { const d = parseDate(r[EC.EFF_DATE]); if (!d) return; if (cFrom && d < cFrom) return; if (cTo && d > cTo) return; }
       const raw = (r[EC.AGENT]||'').trim();
       // Enrollment sheet uses "LastName, FirstName" format — normalize it
       const parts = raw.split(','); const normalized = parts.length === 2 ? (parts[1].trim()+' '+parts[0].trim()) : raw;
