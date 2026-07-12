@@ -24,6 +24,7 @@
   .period-btn { padding: 7px 4px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: rgba(255,255,255,0.65); font-size: 11px; cursor: pointer; text-align: center; transition: all 0.15s; }
   .period-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
   .period-btn.active { background: #f5a623; border-color: #f5a623; color: #fff; font-weight: 700; }
+  .period-btn.full { grid-column: 1 / -1; }
   .custom-dates { display: none; margin-top: 6px; }
   .custom-dates.visible { display: block; }
   .sb-input { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; margin-bottom: 5px; }
@@ -39,6 +40,25 @@
   .topbar-title { font-size: 16px; font-weight: 700; color: #1a2744; }
   .topbar-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
   .last-updated { font-size: 11px; color: #bbb; }
+
+  /* OVERALL SUMMARY */
+  .overall-summary { padding: 22px 28px 0; }
+  .overall-summary-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; border-bottom: 2px solid #1a2744; padding-bottom: 8px; }
+  .overall-summary-title { font-size: 1.25rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #1a2744; }
+  .overall-summary-sub { font-size: 10.5px; color: #999; }
+  .os-metric-block { margin-bottom: 16px; }
+  .os-metric-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #7b8a9e; margin-bottom: 8px; }
+  .os-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .os-card { background: #fff; border-radius: 8px; padding: 12px 14px; flex: 1; min-width: 130px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-top: 3px solid #1a2744; }
+  .os-card.current { border-top-color: #f5a623; }
+  .os-card-month { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #999; font-weight: 700; margin-bottom: 6px; }
+  .os-card-main { display: flex; align-items: center; gap: 6px; }
+  .os-card-value { font-size: 22px; font-weight: 700; color: #1a2744; }
+  .os-card-arrow { font-size: 12px; font-weight: 700; }
+  .os-card-arrow.up-good, .os-card-arrow.down-good { color: #1e8449; }
+  .os-card-arrow.up-bad, .os-card-arrow.down-bad { color: #c0392b; }
+  .os-card-arrow.flat { color: #aaa; }
+  .os-card-total { font-size: 10.5px; color: #999; margin-top: 3px; }
 
   /* STATS */
   .stats-row { display: flex; gap: 16px; padding: 22px 28px 0; flex-wrap: wrap; }
@@ -125,246 +145,9 @@
   .agent-summary-card tbody td.num { text-align: center; font-weight: 700; color: #1a2744; }
   .agent-summary-card tbody td.num.risk { color: #c0392b; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
-// ââ DOWNLOAD HELPERS ââââââââââââââââââââââââââââââââââââââââââ
-
-function downloadChartPNG(cardId, filename) {
-  const el = document.getElementById(cardId);
-  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = filename + '.png';
-    a.click();
-  });
-}
-
-function downloadChartPDF(cardId, title) {
-  const el = document.getElementById(cardId);
-  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
-    const { jsPDF } = window.jspdf;
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
-    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
-    pdf.save(title + '.pdf');
-  });
-}
-
-function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total Apps Submitted','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
-  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
-    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
-  );
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
-}
-
-function downloadAgentPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
-  pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total Apps Submitted','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
-  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
-    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
-  );
-  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
-  pdf.save('agent-summary.pdf');
-}
-
-function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
-  const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
-    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
-  }));
-  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
-  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
-}
-
-function downloadReviewsPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
-  pdf.text('Cancellation Reviews', 40, 40);
-  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
-  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
-  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
-  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
-  pdf.save('cancellation-reviews.pdf');
-}
-
-function triggerDownload(content, mimeType, filename) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js">
-// ââ DOWNLOAD HELPERS ââââââââââââââââââââââââââââââââââââââââââ
-
-function downloadChartPNG(cardId, filename) {
-  const el = document.getElementById(cardId);
-  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = filename + '.png';
-    a.click();
-  });
-}
-
-function downloadChartPDF(cardId, title) {
-  const el = document.getElementById(cardId);
-  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
-    const { jsPDF } = window.jspdf;
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
-    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
-    pdf.save(title + '.pdf');
-  });
-}
-
-function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
-  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
-    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
-  );
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
-}
-
-function downloadAgentPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
-  pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
-  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
-    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
-  );
-  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
-  pdf.save('agent-summary.pdf');
-}
-
-function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
-  const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
-    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
-  }));
-  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
-  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
-}
-
-function downloadReviewsPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
-  pdf.text('Cancellation Reviews', 40, 40);
-  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
-  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
-  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
-  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
-  pdf.save('cancellation-reviews.pdf');
-}
-
-function triggerDownload(content, mimeType, filename) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
-// ââ DOWNLOAD HELPERS ââââââââââââââââââââââââââââââââââââââââââ
-
-function downloadChartPNG(cardId, filename) {
-  const el = document.getElementById(cardId);
-  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = filename + '.png';
-    a.click();
-  });
-}
-
-function downloadChartPDF(cardId, title) {
-  const el = document.getElementById(cardId);
-  html2canvas(el, { backgroundColor: '#fff', scale: 2 }).then(canvas => {
-    const { jsPDF } = window.jspdf;
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
-    pdf.addImage(imgData, 'PNG', 20, 20, canvas.width * ratio - 40, canvas.height * ratio - 40);
-    pdf.save(title + '.pdf');
-  });
-}
-
-function downloadAgentCSV() {
-  const headers = ['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk'];
-  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
-    Array.from(tr.querySelectorAll('td')).map(td => '"' + td.textContent.trim().replace(/"/g,'""') + '"')
-  );
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  triggerDownload(csv, 'text/csv', 'agent-summary.csv');
-}
-
-function downloadAgentPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
-  pdf.text('Agent Summary', 40, 40);
-  const headers = [['Agent','Manager','Total Cancellations','Total Reviewed','Founded','Compliance Risk']];
-  const rows = Array.from(document.querySelectorAll('#agentSummaryBody tr')).map(tr =>
-    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
-  );
-  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 9 }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] } });
-  pdf.save('agent-summary.pdf');
-}
-
-function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
-  const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
-    return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
-  }));
-  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
-  triggerDownload(csv, 'text/csv', 'cancellation-reviews.csv');
-}
-
-function downloadReviewsPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  pdf.setFontSize(13); pdf.setTextColor(26, 39, 68);
-  pdf.text('Cancellation Reviews', 40, 40);
-  const headers = [['Agent','Manager','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold']];
-  const colMap = [C.AGENT,C.MANAGER,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.RETURNED,C.PLAN_SOLD];
-  const rows = filteredRows.map(r => colMap.map(ci => (r[ci]||'').trim()));
-  pdf.autoTable({ head: headers, body: rows, startY: 55, styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' }, headStyles: { fillColor: [26,39,68] }, alternateRowStyles: { fillColor: [247,249,252] }, columnStyles: { 5: { cellWidth: 100 } } });
-  pdf.save('cancellation-reviews.pdf');
-}
-
-function triggerDownload(content, mimeType, filename) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -376,17 +159,15 @@ function triggerDownload(content, mimeType, filename) {
   </div>
   <div class="sb-section">
     <div class="sb-section-title">Date Filter</div>
-    <div class="sb-label">Date Field</div>
-    <select class="sb-select" id="sbDateField" onchange="applyFilters()">
-      <option value="3">App Submit Date</option>
-      <option value="4">Effective Date</option>
-    </select>
-    <div class="sb-label" style="margin-top:12px">Period</div>
+    <div class="sb-label">Period</div>
     <div class="period-btns">
-      <button class="period-btn" data-period="week" onclick="setPeriod('week')">This Week</button>
       <button class="period-btn active" data-period="month" onclick="setPeriod('month')">This Month</button>
+      <button class="period-btn" data-period="prevmonth" onclick="setPeriod('prevmonth')">Prev Month</button>
+      <button class="period-btn" data-period="aep" onclick="setPeriod('aep')">AEP</button>
+      <button class="period-btn" data-period="oep" onclick="setPeriod('oep')">OEP</button>
+      <button class="period-btn" data-period="sep" onclick="setPeriod('sep')">SEP</button>
       <button class="period-btn" data-period="rolling3m" onclick="setPeriod('rolling3m')">Rolling 3M</button>
-      <button class="period-btn" data-period="custom" onclick="setPeriod('custom')">Custom</button>
+      <button class="period-btn full" data-period="custom" onclick="setPeriod('custom')">Custom</button>
     </div>
     <div class="custom-dates" id="customDates">
       <div class="sb-label" style="margin-top:8px">From</div>
@@ -395,8 +176,8 @@ function triggerDownload(content, mimeType, filename) {
       <input type="date" class="sb-input" id="dateTo" onchange="applyFilters()">
     </div>
   </div>
-   <hr class="sb-divider"
-    ><div class="sb-section">
+  <hr class="sb-divider">
+  <div class="sb-section">
     <div class="sb-section-title">Filters</div>
     <div class="sb-label">Manager</div>
     <select class="sb-select" id="sbManager" onchange="applyFilters()"><option value="">All Managers</option></select>
@@ -422,7 +203,7 @@ function triggerDownload(content, mimeType, filename) {
       <div class="topbar-sub">Live data · Google Sheets</div>
     </div>
     <div class="last-updated" id="lastUpdated"></div>
-  
+
     <div id="report-export-btn-wrap" style="display:flex;gap:8px;align-items:center;">
       <button id="export-png-btn" onclick="exportReport('png')"
         style="background:#1a2340;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:0.8rem;font-weight:600;cursor:pointer;letter-spacing:0.04em;">
@@ -434,8 +215,15 @@ function triggerDownload(content, mimeType, filename) {
       </button>
     </div></div>
 
+  <div class="overall-summary" id="overallSummary">
+    <div class="overall-summary-header">
+      <div class="overall-summary-title">Overall Summary</div>
+      <div class="overall-summary-sub">5-month view by effective date · not affected by date filter</div>
+    </div>
+    <div id="overallSummaryBody"><div class="loading">Loading…</div></div>
+  </div>
+
   <div class="stats-row">
-    <div class="stat-card" style="border-top-color:#1a7cd8"><div class="stat-label">Total Apps Submitted</div><div class="stat-value" id="statAppsSubmitted">—</div></div>
     <div class="stat-card" style="border-top-color:#f5a623"><div class="stat-label">Total Cancellations</div><div class="stat-value" id="statCancellations">—</div></div>
     <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value" id="statTotal">—</div></div>
     <div class="stat-card"><div class="stat-label">Compliance Risk</div><div class="stat-value" id="statFalse">—</div></div>
@@ -448,15 +236,15 @@ function triggerDownload(content, mimeType, filename) {
     <div class="charts-row">
       <div class="chart-card" id="chartCard0">
         <div class="card-header"><div class="chart-title">Trends — Top 10 Findings</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard0','findings')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard0','Trends — Top 10 Findings')">&#8595; PDF</button></div></div>
-        <div id="trendsChart"><div class="loading">Loadingâ¦</div></div>
+        <div id="trendsChart"><div class="loading">Loading…</div></div>
       </div>
       <div class="chart-card" id="chartCard1">
         <div class="card-header"><div class="chart-title">Needs Missed — Top 10</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard1','needs-missed')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard1','Needs Missed — Top 10')">&#8595; PDF</button></div></div>
-        <div id="needsMissedChart"><div class="loading">Loadingâ¦</div></div>
+        <div id="needsMissedChart"><div class="loading">Loading…</div></div>
       </div>
       <div class="chart-card" id="chartCard2">
         <div class="card-header"><div class="chart-title">Returned to Prev Plan by Carrier</div><div class="dl-btns"><button class="dl-btn png" onclick="downloadChartPNG('chartCard2','returned-by-carrier')">&#8595; PNG</button><button class="dl-btn pdf" onclick="downloadChartPDF('chartCard2','Returned to Prev Plan by Carrier')">&#8595; PDF</button></div></div>
-        <div id="returnedChart"><div class="loading">Loadingâ¦</div></div>
+        <div id="returnedChart"><div class="loading">Loading…</div></div>
       </div>
     </div>
 
@@ -471,7 +259,6 @@ function triggerDownload(content, mimeType, filename) {
           <tr>
             <th>Agent</th>
             <th>Manager</th>
-            <th class="num">Total Apps Submitted</th>
             <th class="num">Total Cancellations</th>
             <th class="num">Total Reviewed</th>
             <th class="num">Founded</th>
@@ -490,7 +277,7 @@ function triggerDownload(content, mimeType, filename) {
       <div class="table-wrap">
         <table>
           <thead id="tableHead"></thead>
-          <tbody id="tableBody"><tr><td colspan="13" class="loading">Loading dataâ¦</td></tr></tbody>
+          <tbody id="tableBody"><tr><td colspan="13" class="loading">Loading data…</td></tr></tbody>
         </table>
       </div>
       <div class="pagination">
@@ -507,21 +294,17 @@ const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGo
 const PAGE_SIZE = 25;
 let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'month';
 let cancelRows = [], cancelLoaded = false;
-let enrollRows = [], enrollLoaded = false;
-const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
+const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,NEEDS:7,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
 // Cancellations master tab (gid 762489755): Member, Phone, MBI, Carrier, State, Agent, App Submit Date, Effective Date, Date Added, Reviewed
 const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
-// Enrollment sheet (1LlxjOsN25cpjlOX5vfa1o_qSh6_XqzB-ZvRzxFXADdE): Policy ID, First Name, Last Name, MBI, Phone, Servicing Agent, Additional Agent, App Submit Date, Eff Date
-const EC = { AGENT:5, APP_DATE:7, EFF_DATE:8 };
 const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=762489755';
 const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGolOCYlQ3ox1uNVMvH3es6Q0Ue0Fu3RsdQoksgDNOtCVQXnYTaYHaxTKLCtu-VLumM/pub?gid=762489755&single=true&output=csv';
 // Roster tab (gid 1704502235): maps Agent -> Manager. Columns auto-detected by header name.
 const ROSTER_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=1704502235';
-const ENROLL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1LlxjOsN25cpjlOX5vfa1o_qSh6_XqzB-ZvRzxFXADdE/gviz/tq?tqx=out:csv&gid=0';
 let rosterReady = false;
 let rosterByKey = {};   // exact normalized token-key -> manager
 let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
-const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
+const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
 
 function parseCSV(text) {
   // Robust parser that handles quoted fields containing commas and newlines
@@ -570,10 +353,14 @@ function parseDate(s) {
 function getDateRange() {
   const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const eod = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-  if (activePeriod === 'week') { const s=new Date(today); s.setDate(today.getDate()-today.getDay()); return [s,eod]; }
-  if (activePeriod === 'month') { return [new Date(today.getFullYear(),today.getMonth(),1),eod]; }
+  const y = today.getFullYear(), m = today.getMonth();
+  if (activePeriod === 'month')     return [new Date(y,m,1), new Date(y,m+1,0,23,59,59)];
+  if (activePeriod === 'prevmonth') return [new Date(y,m-1,1), new Date(y,m,0,23,59,59)];
+  if (activePeriod === 'aep')       { const ay = m>=9 ? y : y-1; return [new Date(ay,9,15), new Date(ay,11,7,23,59,59)]; }
+  if (activePeriod === 'oep')       return [new Date(y,0,1), new Date(y,2,31,23,59,59)];
+  if (activePeriod === 'sep')       return [new Date(y,m-3,1), new Date(y,m+1,0,23,59,59)];
   if (activePeriod === 'rolling3m') { const s=new Date(today); s.setMonth(s.getMonth()-3); return [s,eod]; }
-  if (activePeriod === 'custom') { const f=document.getElementById('dateFrom').value, t=document.getElementById('dateTo').value; return [f?new Date(f):null, t?new Date(t+'T23:59:59'):null]; }
+  if (activePeriod === 'custom')    { const f=document.getElementById('dateFrom').value, t=document.getElementById('dateTo').value; return [f?new Date(f):null, t?new Date(t+'T23:59:59'):null]; }
   return [null,null];
 }
 
@@ -624,7 +411,7 @@ function buildStats(rows) {
   document.getElementById('statReturned').textContent = rows.filter(r=>(r[C.RETURNED]||'').trim().toUpperCase()==='Y').length;
 }
 
-// ââ ROSTER / NAME MATCHING (Agent -> Manager) âââââââââââââââââ
+// ── ROSTER / NAME MATCHING (Agent -> Manager) ─────────────────
 // Normalize a name: lowercase, drop parentheticals, keep letters only,
 // strip common suffixes, collapse spaces.
 function normName(s) {
@@ -716,7 +503,7 @@ function loadRoster() {
 }
 
 // Total Cancellations comes from the separate Cancellations master tab.
-// Honors the date field + period and the Agent/Carrier filters (columns on that tab).
+// Honors the effective date period and the Agent/Carrier filters (columns on that tab).
 // Manager is resolved per agent via the Roster tab (fuzzy name match).
 // Compliance Risk is not on that tab, so it does not affect this count.
 function updateCancellations() {
@@ -727,8 +514,7 @@ function updateCancellations() {
   const manager = document.getElementById('sbManager').value;
   // A manager is selected but the roster hasn't loaded yet: can't resolve the mapping.
   if (manager && !rosterReady) { el.textContent = '—'; return; }
-  const useApp = document.getElementById('sbDateField').value === '3';
-  const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
+  const dCol = CC.EFF_DATE;
   const [dateFrom, dateTo] = getDateRange();
   el.textContent = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
@@ -737,40 +523,6 @@ function updateCancellations() {
     if (dateFrom || dateTo) { const d = parseDate(r[dCol]); if (!d) return false; if (dateFrom && d < dateFrom) return false; if (dateTo && d > dateTo) return false; }
     return true;
   }).length;
-}
-
-function updateAppsSubmitted() {
-  const el = document.getElementById('statAppsSubmitted');
-  if (!enrollLoaded) { el.textContent = '—'; return; }
-  const agent = document.getElementById('sbAgent').value;
-  const manager = document.getElementById('sbManager').value;
-  if (manager && !rosterReady) { el.textContent = '—'; return; }
-  const useApp = document.getElementById('sbDateField').value === '3';
-  const [dateFrom, dateTo] = getDateRange();
-  el.textContent = enrollRows.filter(r => {
-    const raw = (r[EC.AGENT]||'').trim();
-    const parts = raw.split(','); const normalized = parts.length === 2 ? (parts[1].trim()+' '+parts[0].trim()) : raw;
-    if (agent && !closeNameMatch(normalized, agent)) return false;
-    if (manager && !closeNameMatch(managerForAgent(normalized), manager)) return false;
-    const d = parseDate(r[EC.EFF_DATE]); if (!d) return false;
-    if (dateFrom && d < dateFrom) return false;
-    if (dateTo && d > dateTo) return false;
-    return true;
-  }).length;
-}
-
-function loadEnrollments() {
-  fetch(ENROLL_GVIZ_URL)
-    .then(r => { if (!r.ok) throw new Error('enroll ' + r.status); return r.text(); })
-    .then(t => { if (t.indexOf(',') === -1) throw new Error('not csv'); return t; })
-    .then(text => {
-      const rows = parseCSV(text);
-      enrollRows = rows.slice(1).filter(r => r.some(c => c.trim()));
-      enrollLoaded = true;
-      updateAppsSubmitted();
-      buildAgentSummary(filteredRows);
-    })
-    .catch(err => { console.error('Enrollments load failed:', err); document.getElementById('statAppsSubmitted').textContent = '—'; });
 }
 
 function buildHead() {
@@ -797,8 +549,10 @@ function renderTable() {
         +'<td>'+esc(r[C.EFF_DATE])+'</td>'
         +'<td><div class="td-wrap" title="'+esc(r[C.CARRIER])+'">'+esc(r[C.CARRIER])+'</div></td>'
         +'<td class="td-tags">'+(findings.length?findings.map(f=>'<span class="tag '+tagClass(f)+'">'+esc(f)+'</span>').join(''):'—')+'</td>'
+        +'<td><div class="td-wrap" title="'+esc(r[C.NEEDS])+'">'+esc(r[C.NEEDS]||'—')+'</div></td>'
         +'<td style="text-align:center">'+(fc==='Y'?'<span class="badge-y">Y</span>':fc==='N'?'<span class="badge-n">N</span>':esc(fc)||'—')+'</td>'
-                +'<td style="text-align:center">'+(r[C.RETURNED]==='Y'?'<span class="badge-y">Y</span>':r[C.RETURNED]==='N'?'<span class="badge-n">N</span>':esc(r[C.RETURNED])||'—')+'</td>'
+        +'<td class="td-tags">'+(nm.length?nm.map(f=>'<span class="tag tag-orange">'+esc(f)+'</span>').join(''):'—')+'</td>'
+        +'<td>'+esc(r[C.RETURNED])+'</td>'
         +'<td style="white-space:normal;min-width:120px">'+esc(r[C.PLAN_SOLD]||'—')+'</td>'
         +'<td>'+(fl?'<a class="link-btn" href="'+esc(fl)+'" target="_blank" rel="noopener">View &#8599;</a>':'—')+'</td>'
         +'</tr>';
@@ -829,8 +583,7 @@ function buildAgentSummary(rows) {
   // Per-agent cancellation counts from the Cancellations tab, under the same
   // date window + carrier filters, matched to agents by close (fuzzy) name.
   const carrier = document.getElementById('sbCarrier').value;
-  const useApp = document.getElementById('sbDateField').value === '3';
-  const dCol = useApp ? CC.APP_DATE : CC.EFF_DATE;
+  const dCol = CC.EFF_DATE;
   const [cFrom, cTo] = getDateRange();
   const cancelByKey = {}; // nameKey -> count
   if (cancelLoaded) {
@@ -851,37 +604,14 @@ function buildAgentSummary(rows) {
     return total;
   }
 
-  // Enrollment (apps submitted) count per agent, same date filter
-  const enrollByKey = {}; // nameKey -> count
-  if (enrollLoaded) {
-    enrollRows.forEach(r => {
-      if (cFrom || cTo) { const d = parseDate(r[EC.EFF_DATE]); if (!d) return; if (cFrom && d < cFrom) return; if (cTo && d > cTo) return; }
-      const raw = (r[EC.AGENT]||'').trim();
-      // Enrollment sheet uses "LastName, FirstName" format — normalize it
-      const parts = raw.split(','); const normalized = parts.length === 2 ? (parts[1].trim()+' '+parts[0].trim()) : raw;
-      const k = nameKey(normalized); if (!k) return;
-      enrollByKey[k] = (enrollByKey[k]||0) + 1;
-    });
-  }
-  const enrollKeys = Object.keys(enrollByKey);
-  function enrollCountFor(agentName) {
-    const ak = nameKey(agentName);
-    if (!ak) return 0;
-    const tol = Math.max(1, Math.floor(ak.length * 0.15));
-    let total = 0;
-    enrollKeys.forEach(k => { if (k === ak || levenshtein(ak, k) <= tol) total += enrollByKey[k]; });
-    return total;
-  }
-
   const sorted = Object.entries(agents).sort((a,b)=>b[1].total-a[1].total);
   document.getElementById('agentSummaryCount').textContent = '('+sorted.length+' agents)';
   const tb = document.getElementById('agentSummaryBody');
-  if (!sorted.length) { tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:#bbb">No data for this period.</td></tr>'; return; }
+  if (!sorted.length) { tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:#bbb">No data for this period.</td></tr>'; return; }
   tb.innerHTML = sorted.map(([agent, d]) =>
     '<tr>'
     +'<td>'+esc(agent)+'</td>'
     +'<td>'+esc(d.manager)+'</td>'
-    +'<td class="num">'+(enrollLoaded ? enrollCountFor(agent) : '—')+'</td>'
     +'<td class="num">'+(cancelLoaded ? cancelCountFor(agent) : '—')+'</td>'
     +'<td class="num">'+d.total+'</td>'
     +'<td class="num">'+d.founded+'</td>'
@@ -892,7 +622,7 @@ function buildAgentSummary(rows) {
 function applyFilters() {
   const manager=document.getElementById('sbManager').value, agent=document.getElementById('sbAgent').value;
   const carrier=document.getElementById('sbCarrier').value, compliance=document.getElementById('sbCompliance').value;
-  const dateColIdx=parseInt(document.getElementById('sbDateField').value);
+  const dateColIdx = C.EFF_DATE;
   const [dateFrom,dateTo] = getDateRange();
   filteredRows = allRows.filter(r => {
     if (manager && r[C.MANAGER]!==manager) return false;
@@ -902,12 +632,12 @@ function applyFilters() {
     if (dateFrom||dateTo) { const d=parseDate(r[dateColIdx]); if (!d) return false; if (dateFrom&&d<dateFrom) return false; if (dateTo&&d>dateTo) return false; }
     return true;
   });
-  currentPage = 1; buildStats(filteredRows); buildCharts(filteredRows); buildAgentSummary(filteredRows); updateCancellations(); updateAppsSubmitted(); renderTable();
+  currentPage = 1; buildStats(filteredRows); buildCharts(filteredRows); buildAgentSummary(filteredRows); updateCancellations(); renderTable();
+  buildOverallSummary();
 }
 
 function resetFilters() {
   ['sbManager','sbAgent','sbCarrier','sbCompliance'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('sbDateField').value = '3';
   document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = '';
   setPeriod('month');
 }
@@ -931,8 +661,6 @@ function showError(msg) {
   document.getElementById('tableBody').innerHTML = '<tr><td colspan="13" class="error-msg">'+msg+'</td></tr>';
   ['trendsChart','needsMissedChart','returnedChart'].forEach(id => { document.getElementById(id).innerHTML='<div class="error-msg">'+msg+'</div>'; });
 }
-
-document.getElementById('sbDateField').addEventListener('change', applyFilters);
 
 fetch(CSV_URL)
   .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
@@ -964,9 +692,8 @@ function loadCancellations() {
 }
 loadCancellations();
 loadRoster();
-loadEnrollments();
 
-// ââ DOWNLOAD HELPERS ââââââââââââââââââââââââââââââââââââââââââ
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────
 
 function downloadChartPNG(cardId, filename) {
   const el = document.getElementById(cardId);
@@ -1015,9 +742,9 @@ function downloadAgentPDF() {
 }
 
 function downloadReviewsCSV() {
-  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Compliance Risk','Returned?','Plan Sold','Form Link'];
+  const headers = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
   const rows = filteredRows.map(r => headers.map((h, i) => {
-    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
+    const colMap = [C.AGENT,C.MANAGER,C.AMS,C.APP_DATE,C.EFF_DATE,C.CARRIER,C.FINDINGS,C.NEEDS,C.FALSE_CLAIMS,C.NEEDS_MISSED,C.RETURNED,C.PLAN_SOLD,C.FORM_LINK];
     return '"' + (r[colMap[i]]||'').replace(/"/g,'""') + '"';
   }));
   const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\n');
@@ -1044,8 +771,143 @@ function triggerDownload(content, mimeType, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-</script>
+// ── OVERALL SUMMARY (static 5-month view, effective date only) ──
+// Sourced from the Applications/Denials master sheet (gid 0), which
+// carries every submitted application with an Outcome (Cancelled,
+// Denied, Approved, Pending, blank). Apps Submitted = every row in a
+// given month; Cancellation % / Denial % = share of that month's rows
+// with the matching Outcome. Bucketed by Effective Date. Responds to
+// Manager / Agent / Carrier filters only — never to the date/period filter.
+const OS_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:json&gid=0&range=A2:R5000&headers=0';
+const OS = { AGENT:0, MANAGER:1, SUB_DATE:5, EFF_DATE:6, CARRIER:8, OUTCOME:15 };
+let osRows = [], osLoaded = false;
 
+function osCellDate(cell) {
+  if (!cell || !cell.v) return null;
+  const m = String(cell.v).match(/Date\((\d+),(\d+),(\d+)\)/);
+  return m ? new Date(+m[1], +m[2], +m[3]) : null;
+}
+function osCellStr(cell) { return String(cell && cell.v || '').trim(); }
+function osNorm(s) { return String(s||'').toLowerCase().replace(/\s+/g,''); }
+
+function loadOverallSummaryData() {
+  fetch(OS_GVIZ_URL)
+    .then(r => r.text())
+    .then(t => {
+      const m = t.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
+      if (!m) throw new Error('unexpected response');
+      const rows = JSON.parse(m[1]).table.rows;
+      osRows = rows.filter(r => r.c && r.c[0] && r.c[0].v).map(r => ({
+        agent: osCellStr(r.c[OS.AGENT]),
+        manager: osCellStr(r.c[OS.MANAGER]),
+        carrier: osCellStr(r.c[OS.CARRIER]),
+        outcome: osCellStr(r.c[OS.OUTCOME]).toLowerCase(),
+        effDate: osCellDate(r.c[OS.EFF_DATE])
+      }));
+      osLoaded = true;
+      buildOverallSummary();
+    })
+    .catch(err => { console.error('Overall Summary load failed:', err); document.getElementById('overallSummaryBody').innerHTML = '<div class="error-msg">Could not load Overall Summary data.</div>'; });
+}
+
+function osArrow(curr, prev, higherIsGood) {
+  if (prev === null || prev === undefined) return '';
+  const diff = curr - prev;
+  if (Math.abs(diff) < 0.001) return '<span class="os-card-arrow flat">&#8594;</span>';
+  const up = diff > 0;
+  const cls = up ? (higherIsGood ? 'up-good' : 'up-bad') : (higherIsGood ? 'down-bad' : 'down-good');
+  return '<span class="os-card-arrow '+cls+'">'+(up?'&#9650;':'&#9660;')+'</span>';
+}
+
+function buildOverallSummary() {
+  const el = document.getElementById('overallSummaryBody');
+  if (!osLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
+
+  const manager = document.getElementById('sbManager').value;
+  const agent = document.getElementById('sbAgent').value;
+  const carrier = document.getElementById('sbCarrier').value;
+
+  const rows = osRows.filter(r => {
+    if (manager && r.manager !== manager) return false;
+    if (agent && r.agent !== agent) return false;
+    if (carrier && osNorm(r.carrier) !== osNorm(carrier)) return false;
+    return true;
+  });
+
+  const today = new Date(), y = today.getFullYear(), m = today.getMonth();
+  // 6 buckets: one extra month before the window, purely to compute the
+  // first displayed month's comparison arrow.
+  const monthDefs = [];
+  for (let i = -4; i <= 1; i++) {
+    const d = new Date(y, m+i, 1);
+    monthDefs.push({ y: d.getFullYear(), m: d.getMonth() });
+  }
+  const stats = monthDefs.map(md => {
+    let total=0, cancelled=0, denied=0;
+    rows.forEach(r => {
+      if (!r.effDate) return;
+      if (r.effDate.getFullYear()===md.y && r.effDate.getMonth()===md.m) {
+        total++;
+        if (r.outcome === 'cancelled') cancelled++;
+        if (r.outcome === 'denied') denied++;
+      }
+    });
+    return {
+      total,
+      cancelPct: total ? cancelled/total*100 : 0, cancelled,
+      denialPct: total ? denied/total*100 : 0, denied
+    };
+  });
+
+  const labels = ['','','','','',''];
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  for (let i=1;i<monthDefs.length;i++) {
+    const md = monthDefs[i];
+    let lbl = monthNames[md.m];
+    if (i===4) lbl += ' (Current)';
+    if (i===5) lbl += ' (Next)';
+    labels[i] = lbl;
+  }
+
+  function cardRow(metricLabel, getters) {
+    let html = '<div class="os-metric-block"><div class="os-metric-label">'+metricLabel+'</div><div class="os-row">';
+    for (let i=1;i<stats.length;i++) {
+      const cur = getters.value(stats[i]), prev = getters.value(stats[i-1]);
+      const isCurrent = i===4;
+      html += '<div class="os-card'+(isCurrent?' current':'')+'">'
+        + '<div class="os-card-month">'+labels[i]+'</div>'
+        + '<div class="os-card-main"><span class="os-card-value">'+getters.display(stats[i])+'</span>'+osArrow(cur, prev, getters.higherIsGood)+'</div>'
+        + (getters.sub ? '<div class="os-card-total">'+getters.sub(stats[i])+'</div>' : '')
+        + '</div>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+
+  let html = '';
+  html += cardRow('Apps Submitted', {
+    value: s => s.total,
+    display: s => s.total,
+    higherIsGood: true
+  });
+  html += cardRow('Cancellation %', {
+    value: s => s.cancelPct,
+    display: s => s.cancelPct.toFixed(1)+'%',
+    sub: s => s.cancelled+' of '+s.total,
+    higherIsGood: false
+  });
+  html += cardRow('Denial %', {
+    value: s => s.denialPct,
+    display: s => s.denialPct.toFixed(1)+'%',
+    sub: s => s.denied+' of '+s.total,
+    higherIsGood: false
+  });
+  el.innerHTML = html;
+}
+
+loadOverallSummaryData();
+
+</script>
 
 
 
@@ -1146,7 +1008,7 @@ function triggerDownload(content, mimeType, filename) {
       }
       var tb=document.getElementById('agentSummaryBody');if(!tb)return;
       Array.from(tb.querySelectorAll('tr')).forEach(function(row){
-        while(row.cells.length>7)row.deleteCell(row.cells.length-1);
+        while(row.cells.length>6)row.deleteCell(row.cells.length-1);
         var an=String(row.cells[0]&&row.cells[0].textContent||'').trim(),k=normName(an);
         if(row.cells[1])row.cells[1].textContent=normMgr(row.cells[1].textContent);
         var dd=adm[k];
@@ -1174,7 +1036,7 @@ function triggerDownload(content, mimeType, filename) {
     var oml=mel?mel.style.marginLeft:'',opl=mel?mel.style.paddingLeft:'',obo=document.body.style.overflow;
     var pb=document.getElementById('export-png-btn'),pfb=document.getElementById('export-pdf-btn');
     var opt=pb?pb.innerHTML:'',ofpt=pfb?pfb.innerHTML:'';
-    if(pb){pb.innerHTML='Generatingâ¦';pb.disabled=true;}if(pfb){pfb.innerHTML='Generatingâ¦';pfb.disabled=true;}
+    if(pb){pb.innerHTML='Generating…';pb.disabled=true;}if(pfb){pfb.innerHTML='Generating…';pfb.disabled=true;}
     try{
       toHide.forEach(function(el){el.style.display='none';});
       if(mel){mel.style.marginLeft='0';mel.style.paddingLeft='28px';}
@@ -1273,9 +1135,8 @@ function triggerDownload(content, mimeType, filename) {
     var mgEl=document.getElementById('sbManager');
     var agEl=document.getElementById('sbAgent');
     var caEl=document.getElementById('sbCarrier');
-    var dfEl=document.getElementById('sbDateField');
     var manager=mgEl?mgEl.value:'', agent=agEl?agEl.value:'', carrier=caEl?caEl.value:'';
-    var dateColIdx=dfEl?parseInt(dfEl.value,10):3;
+
     var dr=(typeof getDateRange==='function')?getDateRange():[null,null];
     var dateFrom=dr[0] instanceof Date?dr[0]:null, dateTo=dr[1] instanceof Date?dr[1]:null;
 
@@ -1284,8 +1145,7 @@ function triggerDownload(content, mimeType, filename) {
       if(manager && row.mg!==manager)            return false;
       if(carrier && ncr(row.ca)!==ncr(carrier))  return false;
       if(dateFrom||dateTo){
-        var cell=(dateColIdx===4)?row.effDate:row.subDate;
-        var d=parseDenialDate(cell);
+        var d=parseDenialDate(row.effDate);
         if(!d) return false;
         if(dateFrom&&d<dateFrom) return false;
         if(dateTo  &&d>dateTo)   return false;
