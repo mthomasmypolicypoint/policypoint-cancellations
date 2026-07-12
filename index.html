@@ -498,6 +498,7 @@ function loadRoster() {
       });
       rosterReady = true;
       updateCancellations();
+      if (typeof buildOverallSummary === 'function') buildOverallSummary();
     })
     .catch(err => { console.error('Roster load failed:', err); });
 }
@@ -772,15 +773,23 @@ function triggerDownload(content, mimeType, filename) {
 }
 
 // ── OVERALL SUMMARY (static 5-month view, effective date only) ──
-// Sourced from the Applications/Denials master sheet (gid 0), which
-// carries every submitted application with an Outcome (Cancelled,
-// Denied, Approved, Pending, blank). Apps Submitted = every row in a
-// given month; Cancellation % / Denial % = share of that month's rows
-// with the matching Outcome. Bucketed by Effective Date. Responds to
-// Manager / Agent / Carrier filters only — never to the date/period filter.
+// Apps Submitted (and the denominator for Cancellation %/Denial %) comes
+// from the master Apps Submitted book-of-business sheet (every policy
+// submitted, one row each). Cancelled/Denied counts come from the
+// Applications/Denials tracking sheet (gid 0), which carries an Outcome
+// (Cancelled, Denied, Approved, Pending, blank) per row.
+// Bucketed by Effective Date. Responds to Manager / Agent / Carrier
+// filters only — never to the date/period filter.
 const OS_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:json&gid=0&range=A2:R5000&headers=0';
 const OS = { AGENT:0, MANAGER:1, SUB_DATE:5, EFF_DATE:6, CARRIER:8, OUTCOME:15 };
 let osRows = [], osLoaded = false;
+
+// Apps Submitted master sheet: Policy ID, First Name, Last Name, MBI,
+// PhoneNumber, Servicing Agent Name, Additional Agent Name, App Submit Date,
+// Effective Date, StateAbbrev, Carrier Name, ...
+const AS_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1LlxjOsN25cpjlOX5vfa1o_qSh6_XqzB-ZvRzxFXADdE/gviz/tq?tqx=out:json&gid=0&range=A2:R30000&headers=0';
+const AS = { AGENT:5, SUB_DATE:7, EFF_DATE:8, CARRIER:10 };
+let asRows = [], asLoaded = false;
 
 function osCellDate(cell) {
   if (!cell || !cell.v) return null;
@@ -810,6 +819,26 @@ function loadOverallSummaryData() {
     .catch(err => { console.error('Overall Summary load failed:', err); document.getElementById('overallSummaryBody').innerHTML = '<div class="error-msg">Could not load Overall Summary data.</div>'; });
 }
 
+// Apps Submitted sheet has no Manager column, so manager filtering is
+// resolved via the same roster fuzzy-match used for the Cancellations tab.
+function loadAppsSubmittedData() {
+  fetch(AS_GVIZ_URL)
+    .then(r => r.text())
+    .then(t => {
+      const m = t.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
+      if (!m) throw new Error('unexpected response');
+      const rows = JSON.parse(m[1]).table.rows;
+      asRows = rows.filter(r => r.c && r.c[0] && r.c[0].v).map(r => ({
+        agent: osCellStr(r.c[AS.AGENT]),
+        carrier: osCellStr(r.c[AS.CARRIER]),
+        effDate: osCellDate(r.c[AS.EFF_DATE])
+      }));
+      asLoaded = true;
+      buildOverallSummary();
+    })
+    .catch(err => { console.error('Apps Submitted load failed:', err); document.getElementById('overallSummaryBody').innerHTML = '<div class="error-msg">Could not load Apps Submitted data.</div>'; });
+}
+
 function osArrow(curr, prev, higherIsGood) {
   if (prev === null || prev === undefined) return '';
   const diff = curr - prev;
@@ -821,15 +850,25 @@ function osArrow(curr, prev, higherIsGood) {
 
 function buildOverallSummary() {
   const el = document.getElementById('overallSummaryBody');
-  if (!osLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  if (!osLoaded || !asLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
 
   const manager = document.getElementById('sbManager').value;
   const agent = document.getElementById('sbAgent').value;
   const carrier = document.getElementById('sbCarrier').value;
 
-  const rows = osRows.filter(r => {
+  // Cancelled/Denied counts still come from the Applications/Denials tab.
+  const denialRows = osRows.filter(r => {
     if (manager && r.manager !== manager) return false;
     if (agent && r.agent !== agent) return false;
+    if (carrier && osNorm(r.carrier) !== osNorm(carrier)) return false;
+    return true;
+  });
+
+  // Apps Submitted total (the denominator) comes from the master book of
+  // business sheet. No Manager column there, so resolve it via the roster.
+  const submittedRows = asRows.filter(r => {
+    if (agent && !closeNameMatch(r.agent, agent)) return false;
+    if (manager && !closeNameMatch(managerForAgent(r.agent), manager)) return false;
     if (carrier && osNorm(r.carrier) !== osNorm(carrier)) return false;
     return true;
   });
@@ -843,11 +882,14 @@ function buildOverallSummary() {
     monthDefs.push({ y: d.getFullYear(), m: d.getMonth() });
   }
   const stats = monthDefs.map(md => {
-    let total=0, cancelled=0, denied=0;
-    rows.forEach(r => {
+    let total=0;
+    submittedRows.forEach(r => {
+      if (r.effDate && r.effDate.getFullYear()===md.y && r.effDate.getMonth()===md.m) total++;
+    });
+    let cancelled=0, denied=0;
+    denialRows.forEach(r => {
       if (!r.effDate) return;
       if (r.effDate.getFullYear()===md.y && r.effDate.getMonth()===md.m) {
-        total++;
         if (r.outcome === 'cancelled') cancelled++;
         if (r.outcome === 'denied') denied++;
       }
@@ -906,6 +948,7 @@ function buildOverallSummary() {
 }
 
 loadOverallSummaryData();
+loadAppsSubmittedData();
 
 </script>
 
