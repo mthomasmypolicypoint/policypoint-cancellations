@@ -385,6 +385,38 @@ function tagClass(f) {
   return 'tag-default';
 }
 
+// ── CARRIER NAME NORMALIZATION ─────────────────────────────────
+// Different sheets spell the same carrier differently (legal-entity
+// suffixes, abbreviations, casing). This maps any spelling variant to
+// one canonical display name so filtering/grouping treats them as one
+// carrier everywhere in the report.
+const CARRIER_RULES = [
+  { test: /devoted/,                         name: 'Devoted Health' },
+  { test: /wellcare/,                        name: 'WellCare' },
+  { test: /\buhc\b|united\s*health/,         name: 'UHC' },
+  { test: /\bhumana\b/,                      name: 'Humana' },
+  { test: /\baetna\b/,                       name: 'Aetna' },
+  { test: /\bcigna\b/,                       name: 'Cigna' },
+  { test: /\banthem\b/,                      name: 'Anthem' },
+  { test: /\bmolina\b/,                      name: 'Molina' },
+  { test: /\bkaiser\b/,                      name: 'Kaiser Permanente' },
+  { test: /blue\s*cross|\bbcbs\b/,           name: 'BCBS' },
+  { test: /\bcenten?e\b/,                    name: 'Centene' },
+  { test: /\bclover\b/,                      name: 'Clover Health' },
+  { test: /gold\s*kidney/,                   name: 'Gold Kidney' },
+  { test: /\bzing\b/,                        name: 'Zing Health' },
+  { test: /\bcareplus\b/,                     name: 'CarePlus' }
+];
+function canonicalCarrier(raw) {
+  const s = String(raw||'').trim();
+  if (!s) return '';
+  const norm = s.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+  for (const rule of CARRIER_RULES) { if (rule.test.test(norm)) return rule.name; }
+  // No known rule matched: still collapse case/whitespace variants of the
+  // same unrecognized name so they group together consistently.
+  return norm.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function buildBarChart(id, entries, colorClass, labelWidth) {
   const el = document.getElementById(id);
   if (!entries.length) { el.innerHTML='<div class="no-data">No data for this period.</div>'; return; }
@@ -404,7 +436,7 @@ function buildCharts(rows) {
   buildBarChart('needsMissedChart', Object.entries(needsCounts).sort((a,b)=>b[1]-a[1]).slice(0,10), 'orange', 'med');
 
   const retCounts = {};
-  rows.forEach(r => { if ((r[C.RETURNED]||'').trim().toUpperCase()==='Y' && (r[C.CARRIER]||'').trim()) { const c=(r[C.CARRIER]||'').trim(); retCounts[c]=(retCounts[c]||0)+1; } });
+  rows.forEach(r => { if ((r[C.RETURNED]||'').trim().toUpperCase()==='Y' && (r[C.CARRIER]||'').trim()) { const c=canonicalCarrier(r[C.CARRIER]); retCounts[c]=(retCounts[c]||0)+1; } });
   buildBarChart('returnedChart', Object.entries(retCounts).sort((a,b)=>b[1]-a[1]), 'teal', 'med');
 }
 
@@ -524,7 +556,7 @@ function updateCancellations() {
   const [dateFrom, dateTo] = getDateRange();
   el.textContent = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
-    if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return false;
+    if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return false;
     if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
     if (dateFrom || dateTo) { const d = parseDate(r[dCol]); if (!d) return false; if (dateFrom && d < dateFrom) return false; if (dateTo && d > dateTo) return false; }
     return true;
@@ -594,7 +626,7 @@ function buildAgentSummary(rows) {
   const cancelByKey = {}; // nameKey -> count
   if (cancelLoaded) {
     cancelRows.forEach(r => {
-      if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return;
+      if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return;
       if (cFrom || cTo) { const d = parseDate(r[dCol]); if (!d) return; if (cFrom && d < cFrom) return; if (cTo && d > cTo) return; }
       const k = nameKey(r[CC.AGENT]); if (!k) return;
       cancelByKey[k] = (cancelByKey[k]||0) + 1;
@@ -633,7 +665,7 @@ function applyFilters() {
   filteredRows = allRows.filter(r => {
     if (manager && r[C.MANAGER]!==manager) return false;
     if (agent && r[C.AGENT]!==agent) return false;
-    if (carrier && r[C.CARRIER]!==carrier) return false;
+    if (carrier && canonicalCarrier(r[C.CARRIER])!==carrier) return false;
     if (compliance && (r[C.FALSE_CLAIMS]||'').trim().toUpperCase()!==compliance) return false;
     if (dateFrom||dateTo) { const d=parseDate(r[dateColIdx]); if (!d) return false; if (dateFrom&&d<dateFrom) return false; if (dateTo&&d>dateTo) return false; }
     return true;
@@ -660,7 +692,7 @@ function populateFilters() {
   const add = (selId, vals) => { const s=document.getElementById(selId); vals.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); };
   add('sbManager', [...new Set(allRows.map(r=>r[C.MANAGER]).filter(Boolean))].sort());
   add('sbAgent',   [...new Set(allRows.map(r=>r[C.AGENT]).filter(Boolean))].sort());
-  add('sbCarrier', [...new Set(allRows.map(r=>r[C.CARRIER]).filter(Boolean))].sort());
+  add('sbCarrier', [...new Set(allRows.map(r=>canonicalCarrier(r[C.CARRIER])).filter(Boolean))].sort());
 }
 
 function showError(msg) {
@@ -805,7 +837,6 @@ function osCellDate(cell) {
   return m ? new Date(+m[1], +m[2], +m[3]) : null;
 }
 function osCellStr(cell) { return String(cell && cell.v || '').trim(); }
-function osNorm(s) { return String(s||'').toLowerCase().replace(/\s+/g,''); }
 
 function loadOverallSummaryData() {
   fetch(OS_GVIZ_URL)
@@ -868,7 +899,7 @@ function buildOverallSummary() {
   const denialRows = osRows.filter(r => {
     if (manager && r.manager !== manager) return false;
     if (agent && r.agent !== agent) return false;
-    if (carrier && osNorm(r.carrier) !== osNorm(carrier)) return false;
+    if (carrier && canonicalCarrier(r.carrier) !== carrier) return false;
     return true;
   });
 
@@ -876,7 +907,7 @@ function buildOverallSummary() {
   // "Total Cancellations" KPI, so the two numbers always match.
   const cancelFilteredRows = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
-    if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return false;
+    if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return false;
     if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
     return true;
   });
@@ -886,7 +917,7 @@ function buildOverallSummary() {
   const submittedRows = asRows.filter(r => {
     if (agent && !closeNameMatch(r.agent, agent)) return false;
     if (manager && !closeNameMatch(managerForAgent(r.agent), manager)) return false;
-    if (carrier && osNorm(r.carrier) !== osNorm(carrier)) return false;
+    if (carrier && canonicalCarrier(r.carrier) !== carrier) return false;
     return true;
   });
 
@@ -1004,7 +1035,7 @@ loadAppsSubmittedData();
         if(!m)return;
         JSON.parse(m[1]).table.rows.filter(function(r){return r.c&&r.c[0]&&r.c[0].v;}).forEach(function(r){
           if(String(r.c[15]&&r.c[15].v||'').trim().toLowerCase()!=='denied')return;
-          var ag=String(r.c[0]&&r.c[0].v||'').trim(),ca=String(r.c[8]&&r.c[8].v||'').trim(),
+          var ag=String(r.c[0]&&r.c[0].v||'').trim(),ca=(typeof canonicalCarrier==='function'?canonicalCarrier(r.c[8]&&r.c[8].v):String(r.c[8]&&r.c[8].v||'').trim()),
               re=String(r.c[13]&&r.c[13].v||'').trim(),er=String(r.c[16]&&r.c[16].v||'').trim(),k=normName(ag);
           totD++;if(ca)byCar[ca]=(byCar[ca]||0)+1;if(re)byFind[re]=(byFind[re]||0)+1;
           if(er.toLowerCase()==='yes')totE++;
@@ -1168,8 +1199,6 @@ loadAppsSubmittedData();
     'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?gid=0&headers=1';
   var DC = { AGENT:0, MANAGER:1, CARRIER:8, DENIAL_REASON:13, OUTCOME:15, AGENT_ERROR:16, SUB_DATE:5, EFF_DATE:6 };
 
-  function ncr(s){ return String(s||'').toLowerCase().replace(/\s+/g,''); }
-
   function parseDenialDate(cell){
     if(!cell||!cell.v) return null;
     var m=String(cell.v).match(/Date\((\d+),(\d+),(\d+)\)/);
@@ -1212,7 +1241,7 @@ loadAppsSubmittedData();
     return window._allDenialRows.filter(function(row){
       if(agent   && row.ag!==agent)              return false;
       if(manager && row.mg!==manager)            return false;
-      if(carrier && ncr(row.ca)!==ncr(carrier))  return false;
+      if(carrier && (typeof canonicalCarrier==='function'?canonicalCarrier(row.ca):row.ca)!==carrier)  return false;
       if(dateFrom||dateTo){
         var d=parseDenialDate(row.effDate);
         if(!d) return false;
@@ -1254,7 +1283,8 @@ loadAppsSubmittedData();
     var totD=0,totE=0,byCar={},byFind={};
     rows.forEach(function(row){
       totD++;
-      if(row.ca) byCar[row.ca]=(byCar[row.ca]||0)+1;
+      var ca=(typeof canonicalCarrier==='function'?canonicalCarrier(row.ca):row.ca);
+      if(ca) byCar[ca]=(byCar[ca]||0)+1;
       if(row.re) byFind[row.re]=(byFind[row.re]||0)+1;
       if(row.er.toLowerCase()==='yes') totE++;
     });
