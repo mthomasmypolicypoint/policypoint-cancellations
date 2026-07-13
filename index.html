@@ -46,19 +46,24 @@
   .overall-summary-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; border-bottom: 2px solid #1a2744; padding-bottom: 8px; }
   .overall-summary-title { font-size: 1.25rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #1a2744; }
   .overall-summary-sub { font-size: 10.5px; color: #999; }
-  .os-metric-block { margin-bottom: 16px; }
-  .os-metric-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #7b8a9e; margin-bottom: 8px; }
-  .os-row { display: flex; gap: 12px; flex-wrap: wrap; }
-  .os-card { background: #fff; border-radius: 8px; padding: 12px 14px; flex: 1; min-width: 130px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-top: 3px solid #1a2744; }
-  .os-card.current { border-top-color: #f5a623; }
-  .os-card-month { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #999; font-weight: 700; margin-bottom: 6px; }
-  .os-card-main { display: flex; align-items: center; gap: 6px; }
-  .os-card-value { font-size: 22px; font-weight: 700; color: #1a2744; }
+  .os-charts-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .os-chart-card { background: #fff; border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); flex: 1; min-width: 220px; }
+  .os-chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .os-chart-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #7b8a9e; }
+  .os-chart-trend { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 3px; }
+  .os-chart-trend .os-card-arrow.flat { color: #aaa; }
+  .os-bars { display: flex; align-items: flex-end; gap: 10px; }
+  .os-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .os-bar-value { font-size: 11px; font-weight: 700; color: #1a2744; margin-bottom: 2px; white-space: nowrap; }
+  .os-bar-sub { font-size: 9px; color: #999; margin-bottom: 4px; white-space: nowrap; }
+  .os-bar { width: 100%; max-width: 40px; border-radius: 4px 4px 0 0; background: #1a2744; }
+  .os-bar.current { background: #f5a623; }
+  .os-bar.next { background: #2e86ab; }
+  .os-bar-month { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: #999; font-weight: 700; margin-top: 6px; white-space: nowrap; }
   .os-card-arrow { font-size: 12px; font-weight: 700; }
   .os-card-arrow.up-good, .os-card-arrow.down-good { color: #1e8449; }
   .os-card-arrow.up-bad, .os-card-arrow.down-bad { color: #c0392b; }
   .os-card-arrow.flat { color: #aaa; }
-  .os-card-total { font-size: 10.5px; color: #999; margin-top: 3px; }
 
   /* STATS */
   .stats-row { display: flex; gap: 16px; padding: 22px 28px 0; flex-wrap: wrap; }
@@ -688,6 +693,7 @@ function loadCancellations() {
       cancelLoaded = true;
       updateCancellations();
       buildAgentSummary(filteredRows);
+      if (typeof buildOverallSummary === 'function') buildOverallSummary();
     })
     .catch(err => { console.error('Cancellations load failed:', err); document.getElementById('statCancellations').textContent = '—'; });
 }
@@ -775,7 +781,9 @@ function triggerDownload(content, mimeType, filename) {
 // ── OVERALL SUMMARY (static 5-month view, effective date only) ──
 // Apps Submitted (and the denominator for Cancellation %/Denial %) comes
 // from the master Apps Submitted book-of-business sheet (every policy
-// submitted, one row each). Cancelled/Denied counts come from the
+// submitted, one row each). Cancelled counts come from the same
+// Cancellations master tab used for the "Total Cancellations" KPI above
+// (so the two always agree). Denied counts come from the
 // Applications/Denials tracking sheet (gid 0), which carries an Outcome
 // (Cancelled, Denied, Approved, Pending, blank) per row.
 // Bucketed by Effective Date. Responds to Manager / Agent / Carrier
@@ -850,17 +858,26 @@ function osArrow(curr, prev, higherIsGood) {
 
 function buildOverallSummary() {
   const el = document.getElementById('overallSummaryBody');
-  if (!osLoaded || !asLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  if (!osLoaded || !asLoaded || !cancelLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
 
   const manager = document.getElementById('sbManager').value;
   const agent = document.getElementById('sbAgent').value;
   const carrier = document.getElementById('sbCarrier').value;
 
-  // Cancelled/Denied counts still come from the Applications/Denials tab.
+  // Denied counts come from the Applications/Denials tab.
   const denialRows = osRows.filter(r => {
     if (manager && r.manager !== manager) return false;
     if (agent && r.agent !== agent) return false;
     if (carrier && osNorm(r.carrier) !== osNorm(carrier)) return false;
+    return true;
+  });
+
+  // Cancelled counts come from the same Cancellations master tab used by the
+  // "Total Cancellations" KPI, so the two numbers always match.
+  const cancelFilteredRows = cancelRows.filter(r => {
+    if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
+    if (carrier && (r[CC.CARRIER]||'').trim() !== carrier) return false;
+    if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
     return true;
   });
 
@@ -886,13 +903,14 @@ function buildOverallSummary() {
     submittedRows.forEach(r => {
       if (r.effDate && r.effDate.getFullYear()===md.y && r.effDate.getMonth()===md.m) total++;
     });
-    let cancelled=0, denied=0;
+    let cancelled=0;
+    cancelFilteredRows.forEach(r => {
+      const d = parseDate(r[CC.EFF_DATE]);
+      if (d && d.getFullYear()===md.y && d.getMonth()===md.m) cancelled++;
+    });
+    let denied=0;
     denialRows.forEach(r => {
-      if (!r.effDate) return;
-      if (r.effDate.getFullYear()===md.y && r.effDate.getMonth()===md.m) {
-        if (r.outcome === 'cancelled') cancelled++;
-        if (r.outcome === 'denied') denied++;
-      }
+      if (r.effDate && r.effDate.getFullYear()===md.y && r.effDate.getMonth()===md.m && r.outcome === 'denied') denied++;
     });
     return {
       total,
@@ -904,46 +922,54 @@ function buildOverallSummary() {
   const labels = ['','','','','',''];
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   for (let i=1;i<monthDefs.length;i++) {
-    const md = monthDefs[i];
-    let lbl = monthNames[md.m];
-    if (i===4) lbl += ' (Current)';
-    if (i===5) lbl += ' (Next)';
-    labels[i] = lbl;
+    labels[i] = monthNames[monthDefs[i].m];
   }
 
-  function cardRow(metricLabel, getters) {
-    let html = '<div class="os-metric-block"><div class="os-metric-label">'+metricLabel+'</div><div class="os-row">';
+  const MAX_BAR_H = 90; // px
+
+  function chartCard(metricLabel, getters) {
+    const vals = [1,2,3,4,5].map(i => getters.value(stats[i]));
+    const max = Math.max(1, ...vals);
+    const trend = osArrow(getters.value(stats[4]), getters.value(stats[3]), getters.higherIsGood);
+
+    let bars = '';
     for (let i=1;i<stats.length;i++) {
-      const cur = getters.value(stats[i]), prev = getters.value(stats[i-1]);
-      const isCurrent = i===4;
-      html += '<div class="os-card'+(isCurrent?' current':'')+'">'
-        + '<div class="os-card-month">'+labels[i]+'</div>'
-        + '<div class="os-card-main"><span class="os-card-value">'+getters.display(stats[i])+'</span>'+osArrow(cur, prev, getters.higherIsGood)+'</div>'
-        + (getters.sub ? '<div class="os-card-total">'+getters.sub(stats[i])+'</div>' : '')
+      const val = getters.value(stats[i]);
+      const h = Math.max(4, Math.round(val/max*MAX_BAR_H));
+      const barClass = i===4 ? 'current' : (i===5 ? 'next' : '');
+      bars += '<div class="os-bar-col">'
+        + '<div class="os-bar-value">'+getters.display(stats[i])+'</div>'
+        + (getters.sub ? '<div class="os-bar-sub">'+getters.sub(stats[i])+'</div>' : '')
+        + '<div class="os-bar'+(barClass?' '+barClass:'')+'" style="height:'+h+'px"></div>'
+        + '<div class="os-bar-month">'+labels[i]+'</div>'
         + '</div>';
     }
-    html += '</div></div>';
-    return html;
+
+    return '<div class="os-chart-card">'
+      + '<div class="os-chart-header"><div class="os-chart-title">'+metricLabel+'</div><div class="os-chart-trend">'+trend+'</div></div>'
+      + '<div class="os-bars">'+bars+'</div>'
+      + '</div>';
   }
 
-  let html = '';
-  html += cardRow('Apps Submitted', {
+  let html = '<div class="os-charts-row">';
+  html += chartCard('Apps Submitted', {
     value: s => s.total,
     display: s => s.total,
     higherIsGood: true
   });
-  html += cardRow('Cancellation %', {
+  html += chartCard('Cancellation %', {
     value: s => s.cancelPct,
     display: s => s.cancelPct.toFixed(1)+'%',
     sub: s => s.cancelled+' of '+s.total,
     higherIsGood: false
   });
-  html += cardRow('Denial %', {
+  html += chartCard('Denial %', {
     value: s => s.denialPct,
     display: s => s.denialPct.toFixed(1)+'%',
     sub: s => s.denied+' of '+s.total,
     higherIsGood: false
   });
+  html += '</div>';
   el.innerHTML = html;
 }
 
