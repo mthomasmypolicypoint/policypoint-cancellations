@@ -300,10 +300,10 @@ const PAGE_SIZE = 25;
 let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'month';
 let cancelRows = [], cancelLoaded = false;
 const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,NEEDS:7,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
-// Cancellations master tab (gid 762489755): Member, Phone, MBI, Carrier, State, Agent, App Submit Date, Effective Date, Date Added, Reviewed
+// Cancellations tab from PolicyPoint Denials + Cancellations sheet (12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E, gid 1440155612): Member's Name, PhoneNumber, MBI, Carrier, State, Agent Name, App Submit Date, Effective Date, Date Added, Manager Name
 const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
-const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=762489755';
-const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGolOCYlQ3ox1uNVMvH3es6Q0Ue0Fu3RsdQoksgDNOtCVQXnYTaYHaxTKLCtu-VLumM/pub?gid=762489755&single=true&output=csv';
+const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:csv&gid=1440155612';
+const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:csv&gid=1440155612';
 // Roster tab (gid 1704502235): maps Agent -> Manager. Columns auto-detected by header name.
 const ROSTER_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=1704502235';
 let rosterReady = false;
