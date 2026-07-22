@@ -167,6 +167,7 @@
     <div class="sb-label">Period</div>
     <div class="period-btns">
       <button class="period-btn active" data-period="month" onclick="setPeriod('month')">This Month</button>
+      <button class="period-btn" data-period="nextmonth" onclick="setPeriod('nextmonth')">Next Month</button>
       <button class="period-btn" data-period="prevmonth" onclick="setPeriod('prevmonth')">Prev Month</button>
       <button class="period-btn" data-period="aep" onclick="setPeriod('aep')">AEP</button>
       <button class="period-btn" data-period="oep" onclick="setPeriod('oep')">OEP</button>
@@ -300,16 +301,27 @@ const PAGE_SIZE = 25;
 let allRows = [], filteredRows = [], currentPage = 1, sortCol = -1, sortAsc = true, activePeriod = 'month';
 let cancelRows = [], cancelLoaded = false;
 const C = { AGENT:0,MANAGER:1,AMS:2,APP_DATE:3,EFF_DATE:4,CARRIER:5,FINDINGS:6,NEEDS:7,FALSE_CLAIMS:8,NEEDS_MISSED:9,MORE_PLANS:10,NOTES:11,RETURNED:12,PREV_PLAN:13,PLAN_SOLD:14,CURRENT_MARX:15,FORM_LINK:16 };
-// Cancellations tab from PolicyPoint Denials + Cancellations sheet (12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E, gid 1440155612): Member's Name, PhoneNumber, MBI, Carrier, State, Agent Name, App Submit Date, Effective Date, Date Added, Manager Name
+// Cancellations master tab (gid 762489755): Member, Phone, MBI, Carrier, State, Agent, App Submit Date, Effective Date, Date Added, Reviewed
 const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
-const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:csv&gid=1440155612';
-const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/12DOVFfT0OwxEODayZADoJjUIyIgvSfK9FrXd8aLnB3E/gviz/tq?tqx=out:csv&gid=1440155612';
+const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=762489755';
+const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGolOCYlQ3ox1uNVMvH3es6Q0Ue0Fu3RsdQoksgDNOtCVQXnYTaYHaxTKLCtu-VLumM/pub?gid=762489755&single=true&output=csv';
 // Roster tab (gid 1704502235): maps Agent -> Manager. Columns auto-detected by header name.
 const ROSTER_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=1704502235';
 let rosterReady = false;
 let rosterByKey = {};   // exact normalized token-key -> manager
 let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
 const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
+
+// ── MANAGER NAME NORMALIZATION ─────────────────────────────────
+// Some sheets spell the same manager differently. Map known variants to
+// one canonical display name so the dropdown lists them once and every
+// manager filter comparison treats them as the same person.
+function canonManager(raw) {
+  const s = String(raw||'').trim();
+  if (!s) return '';
+  if (s.toLowerCase() === 'john tellez') return 'JT Tellez';
+  return s;
+}
 
 function parseCSV(text) {
   // Robust parser that handles quoted fields containing commas and newlines
@@ -360,6 +372,7 @@ function getDateRange() {
   const eod = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
   const y = today.getFullYear(), m = today.getMonth();
   if (activePeriod === 'month')     return [new Date(y,m,1), new Date(y,m+1,0,23,59,59)];
+  if (activePeriod === 'nextmonth') return [new Date(y,m+1,1), new Date(y,m+2,0,23,59,59)];
   if (activePeriod === 'prevmonth') return [new Date(y,m-1,1), new Date(y,m,0,23,59,59)];
   if (activePeriod === 'aep')       { const ay = m>=9 ? y : y-1; return [new Date(ay,9,15), new Date(ay,11,7,23,59,59)]; }
   if (activePeriod === 'oep')       return [new Date(y,0,1), new Date(y,2,31,23,59,59)];
@@ -534,6 +547,7 @@ function loadRoster() {
         rosterList.push({ norm: normName(agent), manager: mgr });
       });
       rosterReady = true;
+      populateFilters();
       updateCancellations();
       if (typeof buildOverallSummary === 'function') buildOverallSummary();
     })
@@ -557,7 +571,7 @@ function updateCancellations() {
   el.textContent = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
     if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return false;
-    if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
+    if (manager && !closeNameMatch(canonManager(managerForAgent(r[CC.AGENT])), manager)) return false;
     if (dateFrom || dateTo) { const d = parseDate(r[dCol]); if (!d) return false; if (dateFrom && d < dateFrom) return false; if (dateTo && d > dateTo) return false; }
     return true;
   }).length;
@@ -663,7 +677,7 @@ function applyFilters() {
   const dateColIdx = C.EFF_DATE;
   const [dateFrom,dateTo] = getDateRange();
   filteredRows = allRows.filter(r => {
-    if (manager && r[C.MANAGER]!==manager) return false;
+    if (manager && canonManager(r[C.MANAGER])!==manager) return false;
     if (agent && r[C.AGENT]!==agent) return false;
     if (carrier && canonicalCarrier(r[C.CARRIER])!==carrier) return false;
     if (compliance && (r[C.FALSE_CLAIMS]||'').trim().toUpperCase()!==compliance) return false;
@@ -688,11 +702,54 @@ function sortBy(col) {
 
 function goPage(p) { const t=Math.ceil(filteredRows.length/PAGE_SIZE); if (p<1||p>t) return; currentPage=p; renderTable(); }
 
+// Build the Manager / Agent / Carrier dropdowns from the union of every
+// loaded data source (reviews, cancellations, denials, apps submitted) so
+// people with submissions or denials but no cancellations still appear.
+// Manager names are canonicalized (e.g. John Tellez -> JT Tellez) and
+// apps-submitted agents are mapped to a manager via the roster. Re-run
+// after each async source finishes; the current selection is preserved.
 function populateFilters() {
-  const add = (selId, vals) => { const s=document.getElementById(selId); vals.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); };
-  add('sbManager', [...new Set(allRows.map(r=>r[C.MANAGER]).filter(Boolean))].sort());
-  add('sbAgent',   [...new Set(allRows.map(r=>r[C.AGENT]).filter(Boolean))].sort());
-  add('sbCarrier', [...new Set(allRows.map(r=>canonicalCarrier(r[C.CARRIER])).filter(Boolean))].sort());
+  const managers = new Set(), agents = new Set(), carriers = new Set();
+
+  // Cancellation reviews (main sheet)
+  allRows.forEach(r => {
+    const mg = canonManager(r[C.MANAGER]); if (mg) managers.add(mg);
+    const ag = (r[C.AGENT]||'').trim(); if (ag) agents.add(ag);
+    const ca = canonicalCarrier(r[C.CARRIER]); if (ca) carriers.add(ca);
+  });
+
+  // Cancellations master tab
+  cancelRows.forEach(r => {
+    const ag = (r[CC.AGENT]||'').trim(); if (ag) agents.add(ag);
+    const ca = canonicalCarrier(r[CC.CARRIER]); if (ca) carriers.add(ca);
+    const mg = canonManager(managerForAgent(r[CC.AGENT])); if (mg) managers.add(mg);
+  });
+
+  // Denials / Applications sheet (has its own Manager column)
+  osRows.forEach(r => {
+    const ag = (r.agent||'').trim(); if (ag) agents.add(ag);
+    const mg = canonManager(r.manager); if (mg) managers.add(mg);
+    const ca = canonicalCarrier(r.carrier); if (ca) carriers.add(ca);
+  });
+
+  // Apps Submitted master (no Manager column — resolve via roster)
+  asRows.forEach(r => {
+    const ag = (r.agent||'').trim(); if (ag) agents.add(ag);
+    const mg = canonManager(managerForAgent(r.agent)); if (mg) managers.add(mg);
+    const ca = canonicalCarrier(r.carrier); if (ca) carriers.add(ca);
+  });
+
+  const fill = (selId, allLabel, values) => {
+    const s = document.getElementById(selId); if (!s) return;
+    const prev = s.value;
+    s.innerHTML = '<option value="">'+allLabel+'</option>';
+    values.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); });
+    if (prev && values.indexOf(prev) !== -1) s.value = prev;
+  };
+
+  fill('sbManager', 'All Managers', [...managers].filter(Boolean).sort());
+  fill('sbAgent',   'All Agents',   [...agents].filter(Boolean).sort());
+  fill('sbCarrier', 'All Carriers', [...carriers].filter(Boolean).sort());
 }
 
 function showError(msg) {
@@ -723,6 +780,7 @@ function loadCancellations() {
       const rows = parseCSV(text);
       cancelRows = rows.slice(1).filter(r => r.some(c => c.trim()));
       cancelLoaded = true;
+      populateFilters();
       updateCancellations();
       buildAgentSummary(filteredRows);
       if (typeof buildOverallSummary === 'function') buildOverallSummary();
@@ -853,6 +911,7 @@ function loadOverallSummaryData() {
         effDate: osCellDate(r.c[OS.EFF_DATE])
       }));
       osLoaded = true;
+      populateFilters();
       buildOverallSummary();
     })
     .catch(err => { console.error('Overall Summary load failed:', err); document.getElementById('overallSummaryBody').innerHTML = '<div class="error-msg">Could not load Overall Summary data.</div>'; });
@@ -873,6 +932,7 @@ function loadAppsSubmittedData() {
         effDate: osCellDate(r.c[AS.EFF_DATE])
       }));
       asLoaded = true;
+      populateFilters();
       buildOverallSummary();
     })
     .catch(err => { console.error('Apps Submitted load failed:', err); document.getElementById('overallSummaryBody').innerHTML = '<div class="error-msg">Could not load Apps Submitted data.</div>'; });
@@ -897,7 +957,7 @@ function buildOverallSummary() {
 
   // Denied counts come from the Applications/Denials tab.
   const denialRows = osRows.filter(r => {
-    if (manager && r.manager !== manager) return false;
+    if (manager && canonManager(r.manager) !== manager) return false;
     if (agent && r.agent !== agent) return false;
     if (carrier && canonicalCarrier(r.carrier) !== carrier) return false;
     return true;
@@ -908,7 +968,7 @@ function buildOverallSummary() {
   const cancelFilteredRows = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
     if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return false;
-    if (manager && !closeNameMatch(managerForAgent(r[CC.AGENT]), manager)) return false;
+    if (manager && !closeNameMatch(canonManager(managerForAgent(r[CC.AGENT])), manager)) return false;
     return true;
   });
 
@@ -916,7 +976,7 @@ function buildOverallSummary() {
   // business sheet. No Manager column there, so resolve it via the roster.
   const submittedRows = asRows.filter(r => {
     if (agent && !closeNameMatch(r.agent, agent)) return false;
-    if (manager && !closeNameMatch(managerForAgent(r.agent), manager)) return false;
+    if (manager && !closeNameMatch(canonManager(managerForAgent(r.agent)), manager)) return false;
     if (carrier && canonicalCarrier(r.carrier) !== carrier) return false;
     return true;
   });
@@ -1240,7 +1300,7 @@ loadAppsSubmittedData();
 
     return window._allDenialRows.filter(function(row){
       if(agent   && row.ag!==agent)              return false;
-      if(manager && row.mg!==manager)            return false;
+      if(manager && (typeof canonManager==='function'?canonManager(row.mg):row.mg)!==manager)            return false;
       if(carrier && (typeof canonicalCarrier==='function'?canonicalCarrier(row.ca):row.ca)!==carrier)  return false;
       if(dateFrom||dateTo){
         var d=parseDenialDate(row.effDate);
