@@ -312,10 +312,10 @@ let rosterByKey = {};   // exact normalized token-key -> manager
 let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
 const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
 
-// ── MANAGER NAME NORMALIZATION ─────────────────────────────────
-// Some sheets spell the same manager differently. Map known variants to
-// one canonical display name so the dropdown lists them once and every
-// manager filter comparison treats them as the same person.
+// ── MANAGER NAME ALIGNMENT ─────────────────────────────────────
+// Some sheets spell the same manager differently. Treat "John Tellez"
+// as "JT Tellez" so the dropdown lists that manager once and every
+// manager comparison across the report resolves to the same person.
 function canonManager(raw) {
   const s = String(raw||'').trim();
   if (!s) return '';
@@ -672,6 +672,9 @@ function buildAgentSummary(rows) {
   ).join('');
 }
 function applyFilters() {
+  // Keep the Agent/Manager dropdowns in sync with the selected date range
+  // (they list everyone with submissions whose Effective Date is in range).
+  populateFilters();
   const manager=document.getElementById('sbManager').value, agent=document.getElementById('sbAgent').value;
   const carrier=document.getElementById('sbCarrier').value, compliance=document.getElementById('sbCompliance').value;
   const dateColIdx = C.EFF_DATE;
@@ -702,42 +705,30 @@ function sortBy(col) {
 
 function goPage(p) { const t=Math.ceil(filteredRows.length/PAGE_SIZE); if (p<1||p>t) return; currentPage=p; renderTable(); }
 
-// Build the Manager / Agent / Carrier dropdowns from the union of every
-// loaded data source (reviews, cancellations, denials, apps submitted) so
-// people with submissions or denials but no cancellations still appear.
-// Manager names are canonicalized (e.g. John Tellez -> JT Tellez) and
-// apps-submitted agents are mapped to a manager via the roster. Re-run
-// after each async source finishes; the current selection is preserved.
+// Build the Agent and Manager dropdowns from the Apps Submitted master
+// sheet: every agent (and, via the roster, every manager) that has a
+// submission whose Effective Date falls in the currently selected date
+// range. Manager names are aligned (John Tellez -> JT Tellez). The Carrier
+// dropdown continues to come from the review rows. The current selection is
+// preserved across rebuilds.
 function populateFilters() {
-  const managers = new Set(), agents = new Set(), carriers = new Set();
+  const [dFrom, dTo] = getDateRange();
+  const inRange = (d) => {
+    if (!dFrom && !dTo) return true;
+    if (!d) return false;
+    if (dFrom && d < dFrom) return false;
+    if (dTo && d > dTo) return false;
+    return true;
+  };
 
-  // Cancellation reviews (main sheet)
-  allRows.forEach(r => {
-    const mg = canonManager(r[C.MANAGER]); if (mg) managers.add(mg);
-    const ag = (r[C.AGENT]||'').trim(); if (ag) agents.add(ag);
-    const ca = canonicalCarrier(r[C.CARRIER]); if (ca) carriers.add(ca);
-  });
-
-  // Cancellations master tab
-  cancelRows.forEach(r => {
-    const ag = (r[CC.AGENT]||'').trim(); if (ag) agents.add(ag);
-    const ca = canonicalCarrier(r[CC.CARRIER]); if (ca) carriers.add(ca);
-    const mg = canonManager(managerForAgent(r[CC.AGENT])); if (mg) managers.add(mg);
-  });
-
-  // Denials / Applications sheet (has its own Manager column)
-  osRows.forEach(r => {
-    const ag = (r.agent||'').trim(); if (ag) agents.add(ag);
-    const mg = canonManager(r.manager); if (mg) managers.add(mg);
-    const ca = canonicalCarrier(r.carrier); if (ca) carriers.add(ca);
-  });
-
-  // Apps Submitted master (no Manager column — resolve via roster)
+  const agents = new Set(), managers = new Set();
   asRows.forEach(r => {
+    if (!inRange(r.effDate)) return;
     const ag = (r.agent||'').trim(); if (ag) agents.add(ag);
     const mg = canonManager(managerForAgent(r.agent)); if (mg) managers.add(mg);
-    const ca = canonicalCarrier(r.carrier); if (ca) carriers.add(ca);
   });
+
+  const carriers = new Set(allRows.map(r=>canonicalCarrier(r[C.CARRIER])).filter(Boolean));
 
   const fill = (selId, allLabel, values) => {
     const s = document.getElementById(selId); if (!s) return;
@@ -780,7 +771,6 @@ function loadCancellations() {
       const rows = parseCSV(text);
       cancelRows = rows.slice(1).filter(r => r.some(c => c.trim()));
       cancelLoaded = true;
-      populateFilters();
       updateCancellations();
       buildAgentSummary(filteredRows);
       if (typeof buildOverallSummary === 'function') buildOverallSummary();
@@ -911,7 +901,6 @@ function loadOverallSummaryData() {
         effDate: osCellDate(r.c[OS.EFF_DATE])
       }));
       osLoaded = true;
-      populateFilters();
       buildOverallSummary();
     })
     .catch(err => { console.error('Overall Summary load failed:', err); document.getElementById('overallSummaryBody').innerHTML = '<div class="error-msg">Could not load Overall Summary data.</div>'; });
