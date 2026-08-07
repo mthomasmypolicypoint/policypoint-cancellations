@@ -1156,11 +1156,28 @@ loadAppsSubmittedData();
         }
       }
       var tb=document.getElementById('agentSummaryBody');if(!tb)return;
+      // Per-agent denial counts are recomputed on EVERY render from the same
+      // filtered row set the Denials cards use, so they honor the active date
+      // range / carrier / manager / agent filters. The all-time `adm` map is
+      // only a fallback for the brief window before the cache resolves.
+      var dmap=null;
+      if(typeof window.filterDenialRows==='function'&&window._allDenialRows){
+        dmap={};
+        window.filterDenialRows().forEach(function(dr){
+          var dk=normName(dr.ag);if(!dk)return;
+          if(!dmap[dk])dmap[dk]={d:0,e:0,r:{}};
+          dmap[dk].d++;
+          if(String(dr.er||'').trim().toLowerCase()==='yes')dmap[dk].e++;
+          if(dr.re)dmap[dk].r[dr.re]=(dmap[dk].r[dr.re]||0)+1;
+        });
+      }
       Array.from(tb.querySelectorAll('tr')).forEach(function(row){
+        // Skip the "No data for this period." placeholder row.
+        if(row.cells.length===1&&row.cells[0].hasAttribute('colspan'))return;
         while(row.cells.length>6)row.deleteCell(row.cells.length-1);
         var an=String(row.cells[0]&&row.cells[0].textContent||'').trim(),k=normName(an);
         if(row.cells[1])row.cells[1].textContent=normMgr(row.cells[1].textContent);
-        var dd=adm[k];
+        var dd=dmap?dmap[k]:adm[k];
         var t1=document.createElement('td');t1.className='num';t1.textContent=dd?dd.d:0;row.appendChild(t1);
         var t2=document.createElement('td');t2.className='num';t2.textContent=dd?dd.e:0;row.appendChild(t2);
         var tc=getTopReasons(acr[k]||{});
@@ -1223,7 +1240,12 @@ loadAppsSubmittedData();
     }
   };
 
+  var _inited=false;
   function init(){
+    // Both the MutationObserver and the 800ms timer can fire, and loadDenials()
+    // accumulates into module-level counters. Without this guard it ran twice
+    // and every denial total came out doubled.
+    if(_inited)return; _inited=true;
     var tt=document.querySelector('.topbar-title');if(tt)tt.textContent='Cancellations and Denials';
     var ss=document.querySelector('.sidebar .sub');if(ss)ss.textContent='Cancellations and Denials';
     document.title='PolicyPoint — Cancellations and Denials Dashboard';
@@ -1349,6 +1371,10 @@ loadAppsSubmittedData();
       (fs.length?fs.slice(0,5).map(function(e,i){return findingRow(i+1,e[0],e[1],mcF);}).join(''):'<div style="color:#7b8a9e;font-size:.82rem">No data</div>');
   };
 
+  // Exposed so the Agent Summary table can build its per-agent denial counts
+  // from exactly the same filtered rows as the Denials cards.
+  window.filterDenialRows = filterDenialRows;
+
   function wrapWithRebuild(fnName){
     var orig=window[fnName];
     if(typeof orig!=='function') return;
@@ -1362,6 +1388,9 @@ loadAppsSubmittedData();
         wrapWithRebuild('applyFilters');
         wrapWithRebuild('resetFilters');
         wrapWithRebuild('setPeriod');
+        // Repaint the Agent Summary now that the filterable denial cache
+        // exists, so its denial columns switch off the all-time fallback.
+        if(typeof applyFilters==='function')applyFilters();
       });
     } else {
       setTimeout(install, 200);
