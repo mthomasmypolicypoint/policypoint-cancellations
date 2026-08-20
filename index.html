@@ -915,7 +915,17 @@ function loadAppsSubmittedData() {
       const m = t.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
       if (!m) throw new Error('unexpected response');
       const rows = JSON.parse(m[1]).table.rows;
-      asRows = rows.filter(r => r.c && r.c[0] && r.c[0].v).map(r => ({
+      // Keep a row if it looks like a real submitted app. Previously this
+      // filtered on column A (Policy ID), but recently submitted apps sit in
+      // the sheet with a blank Policy ID until the carrier issues one, so every
+      // pending row was dropped and forward months (e.g. September) showed only
+      // the handful of rows that already had policy numbers.
+      asRows = rows.filter(r => {
+        if (!r.c) return false;
+        const hasAgent = r.c[AS.AGENT] && String(r.c[AS.AGENT].v || '').trim() !== '';
+        const hasEff = !!osCellDate(r.c[AS.EFF_DATE]);
+        return hasAgent || hasEff;
+      }).map(r => ({
         agent: osCellStr(r.c[AS.AGENT]),
         carrier: osCellStr(r.c[AS.CARRIER]),
         effDate: osCellDate(r.c[AS.EFF_DATE])
