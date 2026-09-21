@@ -377,7 +377,10 @@ function getDateRange() {
   if (activePeriod === 'aep')       { const ay = m>=9 ? y : y-1; return [new Date(ay,9,15), new Date(ay,11,7,23,59,59)]; }
   if (activePeriod === 'oep')       return [new Date(y,0,1), new Date(y,2,31,23,59,59)];
   if (activePeriod === 'sep')       return [new Date(y,m-3,1), new Date(y,m+1,0,23,59,59)];
-  if (activePeriod === 'rolling3m') { const s=new Date(today); s.setMonth(s.getMonth()-3); return [s,eod]; }
+  // Rolling 3M is the last three COMPLETE months, not three months back from today:
+  // on 21 Sep 2026 that is 1 Jun through 31 Aug. Partial months at either end made
+  // month-over-month comparisons misleading.
+  if (activePeriod === 'rolling3m') return [new Date(y,m-3,1), new Date(y,m,0,23,59,59)];
   if (activePeriod === 'custom')    { const f=document.getElementById('dateFrom').value, t=document.getElementById('dateTo').value; return [f?new Date(f):null, t?new Date(t+'T23:59:59'):null]; }
   return [null,null];
 }
