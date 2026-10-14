@@ -20,6 +20,10 @@
   .sb-select { width: 100%; padding: 8px 28px 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.45)'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; }
   .sb-select:focus { outline: none; border-color: #f5a623; }
   .sb-select option { background: #1a2744; color: #fff; }
+  .align-seg { display: flex; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 2px; }
+  .align-seg button { flex: 1; border: 0; background: transparent; color: rgba(255,255,255,0.7); font-size: 11.5px; padding: 6px 4px; border-radius: 4px; cursor: pointer; font-family: inherit; }
+  .align-seg button.active { background: #f5a623; color: #1a2744; font-weight: 600; }
+  .align-hint { font-size: 10.5px; color: rgba(255,255,255,0.5); margin-top: 6px; line-height: 1.35; }
   .period-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 2px; }
   .period-btn { padding: 7px 4px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: rgba(255,255,255,0.65); font-size: 11px; cursor: pointer; text-align: center; transition: all 0.15s; }
   .period-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
@@ -185,6 +189,12 @@
   <hr class="sb-divider">
   <div class="sb-section">
     <div class="sb-section-title">Filters</div>
+    <div class="sb-label">Manager Alignment</div>
+    <div class="align-seg" id="alignSeg" role="group" aria-label="Manager alignment">
+      <button type="button" data-align="current" class="active" onclick="setAlignment('current')">Current</button>
+      <button type="button" data-align="historical" onclick="setAlignment('historical')">Historical</button>
+    </div>
+    <div class="align-hint" id="alignHint">Managers from today's roster. An agent's full history follows their current manager.</div>
     <div class="sb-label">Manager</div>
     <select class="sb-select" id="sbManager" onchange="applyFilters()"><option value="">All Managers</option></select>
     <div class="sb-label">Agent</div>
@@ -306,10 +316,74 @@ const CC = { CARRIER:3, AGENT:5, APP_DATE:6, EFF_DATE:7 };
 const CANCEL_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=762489755';
 const CANCEL_PUB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRA00uQ8pNJCGolOCYlQ3ox1uNVMvH3es6Q0Ue0Fu3RsdQoksgDNOtCVQXnYTaYHaxTKLCtu-VLumM/pub?gid=762489755&single=true&output=csv';
 // Roster tab (gid 1704502235): maps Agent -> Manager. Columns auto-detected by header name.
-const ROSTER_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1fY3gZm73yyKmDoj0OrnVPz-jnjf76L2YlWxrvhaoTK8/gviz/tq?tqx=out:csv&gid=1704502235';
+// Now the shared PolicyPoint roster (same tab BAT and Compliance read). Previously gid 1704502235 in this report's own workbook.
+const ROSTER_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1JhD022WkYR1HdRwjrSHxYFPNzUAiZKy3gvnz9dON29U/gviz/tq?tqx=out:csv&gid=1374190330';
 let rosterReady = false;
 let rosterByKey = {};   // exact normalized token-key -> manager
 let rosterList = [];    // [{ norm, manager }] for fuzzy fallback
+
+// ── MANAGER ALIGNMENT ─────────────────────────────────────────
+// Current    = everything goes to the agent's manager on the live roster.
+//              Agents missing from the roster show "Not on roster".
+// Historical = rows that carry a manager keep it (review sheet column B,
+//              Denials sheet Manager). Sheets with no manager column
+//              (Cancellations master, Apps Submitted) use the agent's manager
+//              on their most recent review row, then the roster. Anyone
+//              still without a manager shows "Unassigned".
+const NOT_ON_ROSTER = 'Not on roster';
+const UNASSIGNED = 'Unassigned';
+let ALIGN_MODE = 'current';
+let agentMgrMemo = {}, histLatest = null;
+function rosterMgr(agent) {
+  if (!agent || !rosterReady) return '';
+  if (agent in agentMgrMemo) return agentMgrMemo[agent];
+  return agentMgrMemo[agent] = managerForAgent(agent);
+}
+function buildHistLatest() {
+  histLatest = {};
+  allRows.forEach(r => {
+    const m = String(r._srcMgr !== undefined ? r._srcMgr : r[C.MANAGER] || '').trim();
+    if (!m || /^not found$/i.test(m)) return;
+    const k = nameKey(r[C.AGENT]); if (!k) return;
+    const d = parseDate(r[C.APP_DATE]) || parseDate(r[C.EFF_DATE]);
+    const cur = histLatest[k];
+    if (!cur || (d && (!cur.d || d >= cur.d))) histLatest[k] = { m, d };
+  });
+}
+// Manager for an agent on a sheet with no manager column.
+function agentMgr(agent) {
+  if (!agent) return '';
+  if (ALIGN_MODE === 'current') return rosterMgr(agent) || (rosterReady ? NOT_ON_ROSTER : '');
+  if (!histLatest) buildHistLatest();
+  const h = histLatest[nameKey(agent)];
+  return (h && h.m) || rosterMgr(agent) || (rosterReady ? UNASSIGNED : '');
+}
+// Manager for a row that records its own manager.
+function rowMgr(agent, src) {
+  const own = String(src || '').trim();
+  if (ALIGN_MODE === 'current') return rosterMgr(agent) || (rosterReady ? NOT_ON_ROSTER : own);
+  return own || agentMgr(agent);
+}
+// Review rows are displayed and exported, so their Manager cell is rewritten
+// in place (the sheet value is kept on r._srcMgr).
+function applyAlignment() {
+  allRows.forEach(r => {
+    if (r._srcMgr === undefined) r._srcMgr = r[C.MANAGER];
+    r[C.MANAGER] = rowMgr(r[C.AGENT], r._srcMgr);
+  });
+  histLatest = null;
+  const cur = ALIGN_MODE === 'current';
+  const hint = document.getElementById('alignHint');
+  if (hint) hint.textContent = cur
+    ? "Managers from today's roster. An agent's full history follows their current manager."
+    : 'Managers as recorded on each review (column B), at the time it was logged.';
+  document.querySelectorAll('#alignSeg button').forEach(b => b.classList.toggle('active', b.dataset.align === ALIGN_MODE));
+}
+function setAlignment(mode) {
+  ALIGN_MODE = mode === 'historical' ? 'historical' : 'current';
+  const sel = document.getElementById('sbManager'); if (sel) sel.value = '';
+  applyFilters();
+}
 const HD = ['Agent','Manager','AMS','App Date','Eff. Date','Carrier','Findings','Needs','Compliance Risk','Needs Missed','Returned?','Plan Sold','Form Link'];
 
 // ── MANAGER NAME ALIGNMENT ─────────────────────────────────────
@@ -550,6 +624,8 @@ function loadRoster() {
         rosterList.push({ norm: normName(agent), manager: mgr });
       });
       rosterReady = true;
+      agentMgrMemo = {};
+      if (allRows.length) { applyFilters(); return; }
       populateFilters();
       updateCancellations();
       if (typeof buildOverallSummary === 'function') buildOverallSummary();
@@ -574,7 +650,7 @@ function updateCancellations() {
   el.textContent = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
     if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return false;
-    if (manager && !closeNameMatch(canonManager(managerForAgent(r[CC.AGENT])), manager)) return false;
+    if (manager && !closeNameMatch(canonManager(agentMgr(r[CC.AGENT])), manager)) return false;
     if (dateFrom || dateTo) { const d = parseDate(r[dCol]); if (!d) return false; if (dateFrom && d < dateFrom) return false; if (dateTo && d > dateTo) return false; }
     return true;
   }).length;
@@ -675,6 +751,7 @@ function buildAgentSummary(rows) {
   ).join('');
 }
 function applyFilters() {
+  applyAlignment();
   // Keep the Agent/Manager dropdowns in sync with the selected date range
   // (they list everyone with submissions whose Effective Date is in range).
   populateFilters();
@@ -728,7 +805,14 @@ function populateFilters() {
   asRows.forEach(r => {
     if (!inRange(r.effDate)) return;
     const ag = (r.agent||'').trim(); if (ag) agents.add(ag);
-    const mg = canonManager(managerForAgent(r.agent)); if (mg) managers.add(mg);
+    const mg = canonManager(agentMgr(r.agent)); if (mg) managers.add(mg);
+  });
+
+  // Also list every manager on the review rows in range, so a manager who
+  // appears in the data can always be selected.
+  allRows.forEach(r => {
+    if (!inRange(parseDate(r[C.EFF_DATE]))) return;
+    const mg = canonManager(r[C.MANAGER]); if (mg) managers.add(mg);
   });
 
   const carriers = new Set(allRows.map(r=>canonicalCarrier(r[C.CARRIER])).filter(Boolean));
@@ -959,7 +1043,7 @@ function buildOverallSummary() {
 
   // Denied counts come from the Applications/Denials tab.
   const denialRows = osRows.filter(r => {
-    if (manager && canonManager(r.manager) !== manager) return false;
+    if (manager && canonManager(rowMgr(r.agent, r.manager)) !== manager) return false;
     if (agent && r.agent !== agent) return false;
     if (carrier && canonicalCarrier(r.carrier) !== carrier) return false;
     return true;
@@ -970,7 +1054,7 @@ function buildOverallSummary() {
   const cancelFilteredRows = cancelRows.filter(r => {
     if (agent && !closeNameMatch(r[CC.AGENT], agent)) return false;
     if (carrier && canonicalCarrier(r[CC.CARRIER]) !== carrier) return false;
-    if (manager && !closeNameMatch(canonManager(managerForAgent(r[CC.AGENT])), manager)) return false;
+    if (manager && !closeNameMatch(canonManager(agentMgr(r[CC.AGENT])), manager)) return false;
     return true;
   });
 
@@ -978,7 +1062,7 @@ function buildOverallSummary() {
   // business sheet. No Manager column there, so resolve it via the roster.
   const submittedRows = asRows.filter(r => {
     if (agent && !closeNameMatch(r.agent, agent)) return false;
-    if (manager && !closeNameMatch(canonManager(managerForAgent(r.agent)), manager)) return false;
+    if (manager && !closeNameMatch(canonManager(agentMgr(r.agent)), manager)) return false;
     if (carrier && canonicalCarrier(r.carrier) !== carrier) return false;
     return true;
   });
@@ -1324,7 +1408,8 @@ loadAppsSubmittedData();
 
     return window._allDenialRows.filter(function(row){
       if(agent   && row.ag!==agent)              return false;
-      if(manager && (typeof canonManager==='function'?canonManager(row.mg):row.mg)!==manager)            return false;
+      var rmg=(typeof rowMgr==='function')?rowMgr(row.ag,row.mg):row.mg;
+      if(manager && (typeof canonManager==='function'?canonManager(rmg):rmg)!==manager)            return false;
       if(carrier && (typeof canonicalCarrier==='function'?canonicalCarrier(row.ca):row.ca)!==carrier)  return false;
       if(dateFrom||dateTo){
         var d=parseDenialDate(row.effDate);
