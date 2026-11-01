@@ -964,7 +964,46 @@ let osRows = [], osLoaded = false;
 // Effective Date, StateAbbrev, Carrier Name, ...
 const AS_GVIZ_URL = 'https://docs.google.com/spreadsheets/d/1LlxjOsN25cpjlOX5vfa1o_qSh6_XqzB-ZvRzxFXADdE/gviz/tq?tqx=out:json&gid=0&range=A2:R30000&headers=0';
 const AS = { AGENT:5, SUB_DATE:7, EFF_DATE:8, CARRIER:10 };
-let asRows = [], asLoaded = false;
+let asRows = [], asLoaded = false, asSource = '';
+// -- Apps Submitted from the 10 Day folder (Michelle, 2026-11-01) --
+// Source: "EH Policies.csv" on pp10day (the 10-day folder's EnrollHere export,
+// refreshed every morning), replacing the Apps Submitted Google Sheet, which had
+// stopped at mid-September submissions. The sheet is still read if pp10day
+// can't be reached, and the page says which source it used.
+// One app per EH Policies row, every status. Two quirks in that export are
+// corrected here:
+//  - Rows whose "Column1" holds an email are shifted one column left from there
+//    (the agent-name cell is missing). For those, the App Submit Date is in the
+//    "Created Date" column and the Effective Date in "Approved Date".
+//    (841 rows on 2026-11-01, mostly Sept/Oct POL_SUBMITTED.)
+//  - Rows with Owner First Name "0" carry the first name in "Owner Last Name"
+//    and the last name in "Column1". (1,046 rows.)
+// Agent = Owner First + Last Name (the EH policy owner is the writing agent),
+// returned as "Last, First" to match the old sheet. Checked 2026-11-01: July
+// 2026 per-agent counts equal the sheet's (Hollis 46, Nguyen 41, Vintimilla 38...).
+const EH_POLICIES_URL = 'https://pp10day.netlify.app/EH%20Policies.csv';
+function ehPoliciesToApps(matrix) {
+  const h = (matrix[0] || []).map(x => String(x == null ? '' : x).replace(/^﻿/, '').trim());
+  const ix = n => h.indexOf(n);
+  const iOF = ix('Owner First Name'), iOL = ix('Owner Last Name');
+  const iCr = ix('Created Date'), iSub = ix('Submitted Date'), iApp = ix('Approved Date');
+  const iEff = ix('Effective Date'), iCar = ix('Carrier');
+  if ([iOF, iOL, iCr, iSub, iApp, iEff, iCar].some(i => i < 0)) throw new Error('EH Policies.csv is missing an expected column');
+  const iC1 = iOL + 1;
+  const out = [];
+  for (let i = 1; i < matrix.length; i++) {
+    const r = matrix[i];
+    if (!r || !r.some(c => String(c || '').trim())) continue;
+    const g = k => String(r[k] == null ? '' : r[k]).trim();
+    const c1 = g(iC1), of = g(iOF), ol = g(iOL);
+    const shifted = c1.indexOf('@') !== -1;
+    const first = of === '0' ? ol : of;
+    const last = of === '0' ? c1 : ol;
+    const agent = (last && first) ? last + ', ' + first : (last || first);
+    out.push({ agent: agent, submitDate: g(shifted ? iCr : iSub), effDate: g(shifted ? iApp : iEff), carrier: g(iCar) });
+  }
+  return out;
+}
 
 function osCellDate(cell) {
   if (!cell || !cell.v) return null;
@@ -995,7 +1034,26 @@ function loadOverallSummaryData() {
 
 // Apps Submitted sheet has no Manager column, so manager filtering is
 // resolved via the same roster fuzzy-match used for the Cancellations tab.
+// Apps Submitted: EH Policies from the 10 Day site first (see ehPoliciesToApps);
+// the master Google Sheet below is the fallback.
 function loadAppsSubmittedData() {
+  fetch(EH_POLICIES_URL, { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(t => {
+      asRows = ehPoliciesToApps(parseCSV(t))
+        .map(a => ({ agent: a.agent, carrier: a.carrier, effDate: parseDate(a.effDate) }))
+        .filter(r => r.agent || r.effDate);
+      asSource = '10 Day EH Policies';
+      asLoaded = true;
+      populateFilters();
+      buildOverallSummary();
+    })
+    .catch(err => {
+      console.error('EH Policies (10 Day) load failed, using the Apps Submitted sheet:', err);
+      loadAppsSubmittedSheet();
+    });
+}
+function loadAppsSubmittedSheet() {
   fetch(AS_GVIZ_URL)
     .then(r => r.text())
     .then(t => {
@@ -1017,6 +1075,7 @@ function loadAppsSubmittedData() {
         carrier: osCellStr(r.c[AS.CARRIER]),
         effDate: osCellDate(r.c[AS.EFF_DATE])
       }));
+      asSource = 'Apps Submitted sheet (fallback)';
       asLoaded = true;
       populateFilters();
       buildOverallSummary();
@@ -1147,7 +1206,13 @@ function buildOverallSummary() {
     higherIsGood: false
   });
   html += '</div>';
+  if (asSource) html += '<div style="font-size:11px;color:#888;margin-top:6px">Apps Submitted source: ' + asSource + '</div>';
   el.innerHTML = html;
+  // Read by the Member Experience dashboard's Summary tab (2026-11-01), so its
+  // Cancellations section shows exactly these figures. Unfiltered only.
+  if (!manager && !agent && !carrier) {
+    window.__overallSummary = { months: monthDefs.map(md => ({ y: md.y, m: md.m })), stats: JSON.parse(JSON.stringify(stats)), appsSource: asSource, at: Date.now() };
+  }
 }
 
 loadOverallSummaryData();
